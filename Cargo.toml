@@ -1,0 +1,12 @@
+[package]
+name = "xc-bot"
+version = "0.1.0"
+authors = ["Danilo Bargen <mail@dbrgn.ch>"]
+edition = "2018"
+resolver = "2"
+
+[dependencies]
+anyhow = "1"
+rss = "1"
+reqwest = { version = "0.11", features = ["rustls-tls-native-roots"], default-features = false }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"], default-features = false }
