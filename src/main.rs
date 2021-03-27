@@ -5,6 +5,7 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
+mod notifiers;
 mod xcontest;
 
 #[tokio::main]
@@ -69,6 +70,8 @@ async fn main() -> Result<()> {
 
         // Notify
         tracing::info!("New flight: {}", flight.title);
+        let mut notifier = notifiers::Notifier::new(&mut conn);
+        notifier.notify(&flight).await?;
     }
 
     Ok(())

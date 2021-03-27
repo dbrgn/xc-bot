@@ -1,5 +1,5 @@
 CREATE TABLE xcontest_flights (
-    url            STRING PRIMARY KEY NOT NULL,
-    title          STRING             NOT NULL,
-    pilot_username STRING             NOT NULL
+    url            TEXT PRIMARY KEY NOT NULL,
+    title          TEXT             NOT NULL,
+    pilot_username TEXT             NOT NULL
 );

@@ -1769,6 +1769,7 @@ name = "xc-bot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "futures",
  "lazy_static",
  "regex",
  "reqwest",
