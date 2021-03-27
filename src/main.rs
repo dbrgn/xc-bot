@@ -74,15 +74,15 @@ async fn main() -> Result<()> {
     let mut conn = pool.acquire().await?;
     for flight in flights {
         // Store flight in database.
-        let result = sqlx::query!(
+        let result = sqlx::query(
             r#"
             INSERT INTO xcontest_flights (url, title, pilot_username)
             VALUES (?, ?, ?)
             "#,
-            flight.url,
-            flight.title,
-            flight.pilot_username,
         )
+        .bind(&flight.url)
+        .bind(&flight.title)
+        .bind(&flight.pilot_username)
         .execute(&mut conn)
         .await;
 

@@ -11,6 +11,12 @@ mod threema;
 
 type Conn<'a> = &'a mut sqlx::pool::PoolConnection<sqlx::Sqlite>;
 
+#[derive(Debug, sqlx::FromRow)]
+struct Subscriber {
+    username: String,
+    usertype: String,
+}
+
 pub struct Notifier<'a> {
     conn: Conn<'a>,
     threema: threema::ThreemaNotifier,
@@ -26,15 +32,15 @@ impl<'a> Notifier<'a> {
 
     /// Notify all subscribers about this flight.
     pub async fn notify(&mut self, flight: &Flight, details: Option<FlightDetails>) -> Result<()> {
-        let mut subscribers = sqlx::query!(
+        let mut subscribers = sqlx::query_as::<_, Subscriber>(
             r#"
             SELECT u.username, u.usertype
             FROM subscriptions s
             INNER JOIN users u ON s.user_id = u.id
             WHERE s.pilot_username = ?
             "#,
-            flight.pilot_username,
         )
+        .bind(&flight.pilot_username)
         .fetch(&mut *self.conn);
         while let Some(subscriber) = subscribers.try_next().await? {
             tracing::info!(
