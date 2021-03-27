@@ -11,9 +11,12 @@ lazy_static = "1.4"
 regex = "1.4"
 reqwest = { version = "0.11", features = ["rustls-tls-native-roots"], default-features = false }
 rss = "1"
+serde = "1"
+serde_derive = "1"
 sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
 threema-gateway = { path = "../threema-gateway-rs" }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"], default-features = false }
+toml = "0.5"
 tracing = "0.1"
 tracing-log = "0.1"
 tracing-subscriber = "0.2"

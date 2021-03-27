@@ -1,15 +1,34 @@
-use std::str::FromStr;
+use std::{process, str::FromStr};
 
 use anyhow::Result;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
+mod cli;
+mod config;
 mod notifiers;
 mod xcontest;
 
+use config::Config;
+
+const NAME: &str = "XC Bot";
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
+const DESCRIPTION: &str = "A chat bot that notifies you about new paragliding cross-country flights.";
+
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Parse command line args
+    let app = cli::App::new(NAME, VERSION, DESCRIPTION, AUTHOR, "config.toml");
+
+    // Load config
+    let configfile = app.get_configfile();
+    let config = Config::load(&configfile).unwrap_or_else(|e| {
+        eprintln!("Could not load config file '{:?}': {}", configfile, e);
+        process::exit(2);
+    });
+
     // Init logging
     LogTracer::init()?;
     let subscriber = FmtSubscriber::builder()
@@ -56,15 +75,21 @@ async fn main() -> Result<()> {
         // If inserting fails with a unique constraint, that means that the
         // flight was already processed before.
         match result {
-            Err(sqlx::Error::Database(e)) if e.message() == "UNIQUE constraint failed: xcontest_flights.url" => {
-                tracing::debug!("Flight {} already processed, skipping", flight.url); 
+            Err(sqlx::Error::Database(e))
+                if e.message() == "UNIQUE constraint failed: xcontest_flights.url" =>
+            {
+                tracing::debug!("Flight {} already processed, skipping", flight.url);
                 continue;
             }
             Err(other) => {
                 // Uh oh...
-                tracing::error!("Error inserting flight {} into database: {}", flight.url, other);
+                tracing::error!(
+                    "Error inserting flight {} into database: {}",
+                    flight.url,
+                    other
+                );
                 continue;
-            },
+            }
             Ok(_) => { /* Database entry did not yet exist, carry on with processing */ }
         }
 
