@@ -20,12 +20,15 @@ pub struct Flight {
 impl Flight {
     pub fn new(title: String, url: String) -> Result<Self> {
         lazy_static! {
-            static ref RE: Regex = Regex::new(r"(?x)
+            static ref RE: Regex = Regex::new(
+                r"(?x)
                 http.*xcontest\.org.*
                 /detail:(?P<pilot>[^/]*)
                 /(?P<date>[^/]*)
                 /(?P<time>[0-2][0-9]:[0-6][0-9])
-            ").unwrap();
+            "
+            )
+            .unwrap();
         }
         let caps = RE
             .captures(&url)
@@ -40,10 +43,8 @@ impl Flight {
 }
 
 impl XContest {
-    pub fn new() -> Self {
-        Self {
-            client: Client::builder().user_agent("xc-bot").build().unwrap(),
-        }
+    pub fn new(client: Client) -> Self {
+        Self { client }
     }
 
     /// Fetch the latest RSS feed and parse it into a `Channel`.
@@ -80,8 +81,9 @@ mod tests {
     #[test]
     fn parse_url() {
         let title = "09.08.20 [21.98 km :: free_flight] Firstname Lastname".to_string();
-        let url = "https://www.xcontest.org/2020/switzerland/en/flights/detail:dbrgn/9.8.2020/10:45"
-            .to_string();
+        let url =
+            "https://www.xcontest.org/2020/switzerland/en/flights/detail:dbrgn/9.8.2020/10:45"
+                .to_string();
         let flight = Flight::new(title.clone(), url.clone()).unwrap();
         assert_eq!(flight.title, title);
         assert_eq!(flight.url, url);

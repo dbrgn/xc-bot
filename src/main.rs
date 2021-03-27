@@ -1,6 +1,7 @@
-use std::{process, str::FromStr};
+use std::{process, str::FromStr, time::Duration};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
+use reqwest::Client;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
@@ -15,7 +16,8 @@ use config::Config;
 const NAME: &str = "XC Bot";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
-const DESCRIPTION: &str = "A chat bot that notifies you about new paragliding cross-country flights.";
+const DESCRIPTION: &str =
+    "A chat bot that notifies you about new paragliding cross-country flights.";
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -52,8 +54,20 @@ async fn main() -> Result<()> {
     // Run migrations
     sqlx::migrate!("./migrations").run(&pool).await?;
 
+    // Create shared HTTP client
+    let client = Client::builder()
+        .https_only(true)
+        .pool_idle_timeout(Duration::from_secs(300))
+        .user_agent(concat!(
+            env!("CARGO_PKG_NAME"),
+            "/",
+            env!("CARGO_PKG_VERSION")
+        ))
+        .build()
+        .context("Could not create HTTP client")?;
+
     // Connect to XContest, fetch flights
-    let xc = xcontest::XContest::new();
+    let xc = xcontest::XContest::new(client.clone());
     let flights = xc.fetch_flights().await?;
 
     // Process flights
@@ -95,7 +109,13 @@ async fn main() -> Result<()> {
 
         // Notify
         tracing::info!("New flight: {}", flight.title);
-        let mut notifier = notifiers::Notifier::new(&mut conn);
+        let mut notifier = match notifiers::Notifier::new(&mut conn, client.clone(), &config) {
+            Ok(n) => n,
+            Err(e) => {
+                tracing::error!("Could not instantiate notifier: {}", e);
+                continue;
+            }
+        };
         notifier.notify(&flight).await?;
     }
 

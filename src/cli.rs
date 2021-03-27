@@ -14,7 +14,13 @@ pub struct App<'a> {
 }
 
 impl<'a> App<'a> {
-    pub fn new(name: &'a str, version: &'a str, description: &'a str, author: &'a str, default_config_path: &'a str) -> Self {
+    pub fn new(
+        name: &'a str,
+        version: &'a str,
+        description: &'a str,
+        author: &'a str,
+        default_config_path: &'a str,
+    ) -> Self {
         Self {
             name,
             version,
@@ -29,7 +35,10 @@ impl<'a> App<'a> {
         eprintln!("\n{}", self.description);
         eprintln!("Author: {}", self.author);
         eprintln!("\nUsage:");
-        eprintln!("  -c, --config <PATH>  Path to config file (default: '{}')", self.default_config_path);
+        eprintln!(
+            "  -c, --config <PATH>  Path to config file (default: '{}')",
+            self.default_config_path
+        );
         eprintln!("  -v, --version        Return the version");
         eprintln!("  -h, --help           Print this information");
     }

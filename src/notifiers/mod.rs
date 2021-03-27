@@ -1,7 +1,8 @@
 use anyhow::Result;
 use futures::TryStreamExt;
+use reqwest::Client;
 
-use crate::xcontest::Flight;
+use crate::{config::Config, xcontest::Flight};
 
 mod threema;
 
@@ -13,11 +14,11 @@ pub struct Notifier<'a> {
 }
 
 impl<'a> Notifier<'a> {
-    pub fn new(conn: Conn<'a>) -> Self {
-        Self {
+    pub fn new(conn: Conn<'a>, client: Client, config: &'a Config) -> Result<Self> {
+        Ok(Self {
             conn,
-            threema: threema::ThreemaNotifier::new(),
-        }
+            threema: threema::ThreemaNotifier::new(&config.threema, client)?,
+        })
     }
 
     /// Notify all subscribers about this flight.

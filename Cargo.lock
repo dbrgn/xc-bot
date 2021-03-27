@@ -1411,7 +1411,9 @@ dependencies = [
 
 [[package]]
 name = "threema-gateway"
-version = "0.13.0"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e815783dd64d4691a817a4440151fc733bbfe51d3404b0ca817de8852b9fe14a"
 dependencies = [
  "byteorder",
  "data-encoding",
