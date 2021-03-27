@@ -1,5 +1,7 @@
 # XC Bot
 
+[![Build status](https://img.shields.io/github/workflow/status/dbrgn/xc-bot/CI/main)](https://github.com/dbrgn/xc-bot/actions?query=workflow%3ACI)
+
 **WORK IN PROGRESS**
 
 A chat bot that notifies you about new paragliding cross-country flights
