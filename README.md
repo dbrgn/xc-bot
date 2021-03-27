@@ -1,6 +1,6 @@
 # XC Bot
 
-[![Build status](https://img.shields.io/github/workflow/status/dbrgn/xc-bot/CI/main)](https://github.com/dbrgn/xc-bot/actions?query=workflow%3ACI)
+[![CircleCI][circle-ci-badge]][circle-ci]
 
 **WORK IN PROGRESS**
 
@@ -38,3 +38,7 @@ Licensed under the AGPL version 3 or later. See `LICENSE.md` file.
 
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+<!-- Badges -->
+[circle-ci]: https://circleci.com/gh/dbrgn/xc-bot/tree/main
+[circle-ci-badge]: https://circleci.com/gh/dbrgn/xc-bot/tree/main.svg?style=shield
