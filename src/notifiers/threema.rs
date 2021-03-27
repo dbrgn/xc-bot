@@ -4,7 +4,9 @@ use std::{convert::TryInto, str::FromStr};
 
 use anyhow::{Context, Result};
 use reqwest::Client;
-use threema_gateway::{encrypt_file_data, ApiBuilder, E2eApi, FileMessage, RecipientKey, Mime, RenderingType};
+use threema_gateway::{
+    encrypt_file_data, ApiBuilder, E2eApi, FileMessage, Mime, RecipientKey, RenderingType,
+};
 
 use crate::{
     config::ThreemaConfig,
@@ -52,7 +54,8 @@ impl ThreemaNotifier {
         let msg_id = if let Some(details) = details {
             // Encrypt file message contents
             // TODO: Resize thumbnail
-            let (file_data, thumb_data, key) = encrypt_file_data(&details.thumbnail, Some(&details.thumbnail));
+            let (file_data, thumb_data, key) =
+                encrypt_file_data(&details.thumbnail, Some(&details.thumbnail));
             let thumb_data = thumb_data.unwrap();
 
             // Upload image data
@@ -69,14 +72,19 @@ impl ThreemaNotifier {
 
             // Create file message
             let mime_png = Mime::from_str("image/png").unwrap();
-            let msg = FileMessage::builder(file_blob_id, key, mime_png.clone(), file_data.len().try_into().unwrap())
-                .thumbnail(thumb_blob_id, mime_png)
-                .description(text)
-                .file_name("thumbnail.png")
-                .rendering_type(RenderingType::Media)
-                .animated(false)
-                .build()
-                .context("Could not create file message")?;
+            let msg = FileMessage::builder(
+                file_blob_id,
+                key,
+                mime_png.clone(),
+                file_data.len().try_into().unwrap(),
+            )
+            .thumbnail(thumb_blob_id, mime_png)
+            .description(text)
+            .file_name("thumbnail.png")
+            .rendering_type(RenderingType::Media)
+            .animated(false)
+            .build()
+            .context("Could not create file message")?;
             let encrypted = self.api.encrypt_file_msg(&msg, &recipient_key);
 
             // Send

@@ -92,7 +92,9 @@ impl XContest {
 
         // Extract thumbnail URL
         lazy_static! {
-            static ref THUMBNAIL_RE: Regex = Regex::new(r#"<meta\s*property="og:image"\s*content="(?P<url>[^"]*)"\s*/>"#).unwrap();
+            static ref THUMBNAIL_RE: Regex =
+                Regex::new(r#"<meta\s*property="og:image"\s*content="(?P<url>[^"]*)"\s*/>"#)
+                    .unwrap();
         }
         let caps = THUMBNAIL_RE
             .captures(&html)

@@ -115,7 +115,7 @@ async fn main() -> Result<()> {
             Err(e) => {
                 tracing::warn!("Could not fetch flight details: {}", e);
                 None
-            },
+            }
         };
         let mut notifier = match notifiers::Notifier::new(&mut conn, client.clone(), &config) {
             Ok(n) => n,
