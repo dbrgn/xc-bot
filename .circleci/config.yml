@@ -110,9 +110,9 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
 
-  # Build master branch every week on Monday at 04:00 am
+  # Build main branch every week on Monday at 04:00 am
   weekly:
     triggers:
       - schedule:
@@ -120,7 +120,7 @@ workflows:
           filters:
             branches:
               only:
-                - master
+                - main
     jobs:
       - test
       - clippy
