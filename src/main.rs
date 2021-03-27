@@ -2,7 +2,7 @@ use std::{process, str::FromStr, time::Duration};
 
 use anyhow::{Context, Result};
 use reqwest::Client;
-use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions};
+use sqlx::{Pool, Sqlite, sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions}};
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
@@ -12,6 +12,7 @@ mod notifiers;
 mod xcontest;
 
 use config::Config;
+use xcontest::XContest;
 
 const NAME: &str = "XC Bot";
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -66,8 +67,25 @@ async fn main() -> Result<()> {
         .build()
         .context("Could not create HTTP client")?;
 
+    // Create XContest client
+    let xc = XContest::new(client.clone());
+
+    // Main loop, run every minute
+    let mut interval = tokio::time::interval(Duration::from_secs(60));
+    loop {
+        match update(&pool, &xc, &client, &config).await {
+            Ok(_) => {},
+            Err(e) => tracing::warn!("Update failed: {}", e),
+        };
+        interval.tick().await;
+    }
+}
+
+/// This function will be called regularly to fetch new flights.
+async fn update(pool: &Pool<Sqlite>, xc: &XContest, client: &Client, config: &Config) -> Result<()> {
+    tracing::info!("Update");
+
     // Connect to XContest, fetch flights
-    let xc = xcontest::XContest::new(client.clone());
     let flights = xc.fetch_flights().await?;
 
     // Process flights
