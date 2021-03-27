@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use bytes::Bytes;
 
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -12,9 +13,18 @@ pub struct XContest {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Flight {
+    /// Flight title
     pub title: String,
+    /// Flight URL
     pub url: String,
+    /// Username of the pilot
     pub pilot_username: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct FlightDetails {
+    /// Flight thumbnail (PNG data)
+    pub thumbnail: Bytes,
 }
 
 impl Flight {
@@ -71,6 +81,30 @@ impl XContest {
             })
             .collect::<Vec<Flight>>();
         Ok(flights)
+    }
+
+    /// Fetch additional details for this flight.
+    pub async fn fetch_flight_details(&self, flight: &Flight) -> Result<FlightDetails> {
+        // Fetch flight details HTML
+        let details_resp = self.client.get(&flight.url).send().await?;
+        details_resp.error_for_status_ref()?;
+        let html = details_resp.text().await?;
+
+        // Extract thumbnail URL
+        lazy_static! {
+            static ref THUMBNAIL_RE: Regex = Regex::new(r#"<meta\s*property="og:image"\s*content="(?P<url>[^"]*)"\s*/>"#).unwrap();
+        }
+        let caps = THUMBNAIL_RE
+            .captures(&html)
+            .context("Thumbnail URL not found in flight details HTML")?;
+        let thumbnail_url = caps.name("url").unwrap().as_str();
+
+        // Fetch thumbnail
+        let thumbnail_resp = self.client.get(thumbnail_url).send().await?;
+        thumbnail_resp.error_for_status_ref()?;
+        Ok(FlightDetails {
+            thumbnail: thumbnail_resp.bytes().await?,
+        })
     }
 }
 

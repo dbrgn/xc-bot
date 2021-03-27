@@ -1,10 +1,15 @@
 //! Threema gateway notification channel.
 
+use std::{convert::TryInto, str::FromStr};
+
 use anyhow::{Context, Result};
 use reqwest::Client;
-use threema_gateway::{ApiBuilder, E2eApi, RecipientKey};
+use threema_gateway::{encrypt_file_data, ApiBuilder, E2eApi, FileMessage, RecipientKey, Mime, RenderingType};
 
-use crate::{config::ThreemaConfig, xcontest::Flight};
+use crate::{
+    config::ThreemaConfig,
+    xcontest::{Flight, FlightDetails},
+};
 
 pub struct ThreemaNotifier {
     api: E2eApi,
@@ -20,7 +25,13 @@ impl ThreemaNotifier {
         Ok(Self { api })
     }
 
-    pub async fn notify(&mut self, flight: &Flight, identity: &str) -> Result<()> {
+    /// Notify the Threema user with the specified `identity` about the flight.
+    pub async fn notify(
+        &mut self,
+        flight: &Flight,
+        details: Option<&FlightDetails>,
+        identity: &str,
+    ) -> Result<()> {
         tracing::debug!("notify");
 
         // Fetch public key of recipient
@@ -34,16 +45,51 @@ impl ThreemaNotifier {
             .parse()
             .context("Could not parse recipient public key")?;
 
-        // Encrypt notification message
+        // Notification text
         let text = format!("{}\n{}", flight.title, flight.url);
-        let encrypted = self.api.encrypt_text_msg(&text, &recipient_key);
 
-        // Send
-        match self.api.send(identity, &encrypted, false).await {
-            Ok(msg_id) => println!("Sent. Message id is {}.", msg_id),
-            Err(e) => println!("Could not send message: {:?}", e),
-        }
+        // Depending on whether or not we have details, we'll send a text or image message.
+        let msg_id = if let Some(details) = details {
+            // Encrypt file message contents
+            // TODO: Resize thumbnail
+            let (file_data, thumb_data, key) = encrypt_file_data(&details.thumbnail, Some(&details.thumbnail));
+            let thumb_data = thumb_data.unwrap();
 
+            // Upload image data
+            let file_blob_id = self
+                .api
+                .blob_upload_raw(&file_data, false)
+                .await
+                .context("Could not upload file blob")?;
+            let thumb_blob_id = self
+                .api
+                .blob_upload_raw(&thumb_data, false)
+                .await
+                .context("Could not upload thumbnail blob")?;
+
+            // Create file message
+            let mime_png = Mime::from_str("image/png").unwrap();
+            let msg = FileMessage::builder(file_blob_id, key, mime_png.clone(), file_data.len().try_into().unwrap())
+                .thumbnail(thumb_blob_id, mime_png)
+                .description(text)
+                .file_name("thumbnail.png")
+                .rendering_type(RenderingType::Media)
+                .animated(false)
+                .build()
+                .context("Could not create file message")?;
+            let encrypted = self.api.encrypt_file_msg(&msg, &recipient_key);
+
+            // Send
+            self.api.send(identity, &encrypted, false).await?
+        } else {
+            // Encrypt simple notification text message
+            let encrypted = self.api.encrypt_text_msg(&text, &recipient_key);
+
+            // Send
+            self.api.send(identity, &encrypted, false).await?
+        };
+
+        tracing::debug!("Notification sent, message id is {}", msg_id);
         Ok(())
     }
 }

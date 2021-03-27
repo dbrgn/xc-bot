@@ -109,6 +109,14 @@ async fn main() -> Result<()> {
 
         // Notify
         tracing::info!("New flight: {}", flight.title);
+        // TODO: Only fetch if subscribers present
+        let details = match xc.fetch_flight_details(&flight).await {
+            Ok(details) => Some(details),
+            Err(e) => {
+                tracing::warn!("Could not fetch flight details: {}", e);
+                None
+            },
+        };
         let mut notifier = match notifiers::Notifier::new(&mut conn, client.clone(), &config) {
             Ok(n) => n,
             Err(e) => {
@@ -116,7 +124,7 @@ async fn main() -> Result<()> {
                 continue;
             }
         };
-        notifier.notify(&flight).await?;
+        notifier.notify(&flight, details).await?;
     }
 
     Ok(())

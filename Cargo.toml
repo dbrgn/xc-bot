@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1"
+bytes = "1"
 futures = "0.3"
 lazy_static = "1.4"
 regex = "1.4"
@@ -14,7 +15,7 @@ rss = "1"
 serde = "1"
 serde_derive = "1"
 sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
-threema-gateway = "0.14"
+threema-gateway = "0.14.1"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"], default-features = false }
 toml = "0.5"
 tracing = "0.1"

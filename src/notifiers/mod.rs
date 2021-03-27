@@ -2,7 +2,10 @@ use anyhow::Result;
 use futures::TryStreamExt;
 use reqwest::Client;
 
-use crate::{config::Config, xcontest::Flight};
+use crate::{
+    config::Config,
+    xcontest::{Flight, FlightDetails},
+};
 
 mod threema;
 
@@ -22,7 +25,7 @@ impl<'a> Notifier<'a> {
     }
 
     /// Notify all subscribers about this flight.
-    pub async fn notify(&mut self, flight: &Flight) -> Result<()> {
+    pub async fn notify(&mut self, flight: &Flight, details: Option<FlightDetails>) -> Result<()> {
         let mut subscribers = sqlx::query!(
             r#"
             SELECT u.username, u.usertype
@@ -44,7 +47,7 @@ impl<'a> Notifier<'a> {
             match &*subscriber.usertype {
                 "threema" => self
                     .threema
-                    .notify(flight, &subscriber.username)
+                    .notify(flight, details.as_ref(), &subscriber.username)
                     .await
                     .unwrap_or_else(|e| tracing::error!("Could not notify threema user: {}", e)),
                 other => tracing::warn!("Unsupported notification channel: {}", other),

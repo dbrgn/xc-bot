@@ -1411,9 +1411,9 @@ dependencies = [
 
 [[package]]
 name = "threema-gateway"
-version = "0.14.0"
+version = "0.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e815783dd64d4691a817a4440151fc733bbfe51d3404b0ca817de8852b9fe14a"
+checksum = "76894e1b895dedb0014da066a6fc22542a0128037dd63e8c610669412db8af2f"
 dependencies = [
  "byteorder",
  "data-encoding",
@@ -1857,6 +1857,7 @@ name = "xc-bot"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "bytes",
  "futures",
  "lazy_static",
  "regex",
