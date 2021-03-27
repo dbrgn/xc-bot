@@ -20,6 +20,17 @@ More may follow in the future.
 The bot is written in Rust using a SQLite database for keeping track of the
 processed flights and flight subscriptions.
 
+## Docker Image
+
+The repository includes a Dockerfile.
+
+Important paths:
+
+- `/etc/xc-bot/config.toml`: Configuration file
+- `/xc-bot/`: Work directory (including database)
+
+You'll probably want to mount both files into the container.
+
 ## License
 
 Licensed under the AGPL version 3 or later. See `LICENSE.md` file.

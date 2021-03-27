@@ -27,7 +27,7 @@ async fn main() -> Result<()> {
     // Load config
     let configfile = app.get_configfile();
     let config = Config::load(&configfile).unwrap_or_else(|e| {
-        eprintln!("Could not load config file '{:?}': {}", configfile, e);
+        eprintln!("Could not load config file {:?}: {}", configfile, e);
         process::exit(2);
     });
 
