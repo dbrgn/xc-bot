@@ -2,7 +2,10 @@ use std::{process, str::FromStr, time::Duration};
 
 use anyhow::{Context, Result};
 use reqwest::Client;
-use sqlx::{Pool, Sqlite, sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions}};
+use sqlx::{
+    sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+    Pool, Sqlite,
+};
 use tracing_log::LogTracer;
 use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
@@ -34,8 +37,13 @@ async fn main() -> Result<()> {
 
     // Init logging
     LogTracer::init()?;
+    let filter: String = config
+        .logging
+        .as_ref()
+        .and_then(|logging| logging.filter.to_owned())
+        .unwrap_or_else(|| "info,sqlx::query=warn".into());
     let subscriber = FmtSubscriber::builder()
-        .with_env_filter("debug,sqlx::query=warn")
+        .with_env_filter(&filter)
         .with_span_events(FmtSpan::CLOSE)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting tracing default failed");
@@ -73,23 +81,31 @@ async fn main() -> Result<()> {
     // Main loop, run every minute
     let mut interval = tokio::time::interval(Duration::from_secs(60));
     loop {
+        interval.tick().await;
         match update(&pool, &xc, &client, &config).await {
-            Ok(_) => {},
+            Ok(_) => {}
             Err(e) => tracing::warn!("Update failed: {}", e),
         };
-        interval.tick().await;
     }
 }
 
 /// This function will be called regularly to fetch new flights.
-async fn update(pool: &Pool<Sqlite>, xc: &XContest, client: &Client, config: &Config) -> Result<()> {
-    tracing::info!("Update");
+#[tracing::instrument(skip(pool, xc, client, config))]
+async fn update(
+    pool: &Pool<Sqlite>,
+    xc: &XContest,
+    client: &Client,
+    config: &Config,
+) -> Result<()> {
+    tracing::info!("Update started");
 
     // Connect to XContest, fetch flights
     let flights = xc.fetch_flights().await?;
 
     // Process flights
     let mut conn = pool.acquire().await?;
+    let total_flights = flights.len();
+    let mut new_flights = 0;
     for flight in flights {
         // Store flight in database.
         let result = sqlx::query(
@@ -127,6 +143,7 @@ async fn update(pool: &Pool<Sqlite>, xc: &XContest, client: &Client, config: &Co
 
         // Notify
         tracing::info!("New flight: {}", flight.title);
+        new_flights += 1;
         // TODO: Only fetch if subscribers present
         let details = match xc.fetch_flight_details(&flight).await {
             Ok(details) => Some(details),
@@ -145,5 +162,10 @@ async fn update(pool: &Pool<Sqlite>, xc: &XContest, client: &Client, config: &Co
         notifier.notify(&flight, details).await?;
     }
 
+    tracing::info!(
+        "Update done, found {}/{} new flights",
+        new_flights,
+        total_flights
+    );
     Ok(())
 }

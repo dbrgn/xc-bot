@@ -5,6 +5,7 @@ use serde_derive::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub threema: ThreemaConfig,
+    pub logging: Option<LoggingConfig>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -15,6 +16,13 @@ pub struct ThreemaConfig {
     pub gateway_secret: String,
     /// The hex-encoded private key
     pub private_key: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct LoggingConfig {
+    /// The log filter (tracing syntax). Default: `info,sqlx::query=warn`. For development, you
+    /// could set it to `debug,sqlx::query=warn`.
+    pub filter: Option<String>,
 }
 
 impl Config {
