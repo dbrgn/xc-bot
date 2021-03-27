@@ -3,15 +3,21 @@ use futures::TryStreamExt;
 
 use crate::xcontest::Flight;
 
+mod threema;
+
 type Conn<'a> = &'a mut sqlx::pool::PoolConnection<sqlx::Sqlite>;
 
 pub struct Notifier<'a> {
     conn: Conn<'a>,
+    threema: threema::ThreemaNotifier,
 }
 
 impl<'a> Notifier<'a> {
     pub fn new(conn: Conn<'a>) -> Self {
-        Self { conn }
+        Self {
+            conn,
+            threema: threema::ThreemaNotifier::new(),
+        }
     }
 
     /// Notify all subscribers about this flight.
@@ -31,8 +37,17 @@ impl<'a> Notifier<'a> {
                 "Notifying {}/{} about flight {}",
                 subscriber.usertype,
                 subscriber.username,
-                flight.url
+                flight.url,
             );
+
+            match &*subscriber.usertype {
+                "threema" => self
+                    .threema
+                    .notify(flight, &subscriber.username)
+                    .await
+                    .unwrap_or_else(|e| tracing::error!("Could not notify threema user: {}", e)),
+                other => tracing::warn!("Unsupported notification channel: {}", other),
+            }
         }
         Ok(())
     }
