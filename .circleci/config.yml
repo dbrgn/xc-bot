@@ -90,9 +90,8 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: |
-          export VERSION=$(grep "^version =" Cargo.toml | sed 's/.*"\([^"]*\)".*/\1/')
           export IMAGE=dbrgn/xc-bot
-          docker build . --no-cache -t ${IMAGE}:${CIRCLE_BRANCH} -t ${IMAGE}:${VERSION} \
+          docker build . --no-cache -t ${IMAGE}:${CIRCLE_BRANCH} \
           && docker login -u $DOCKER_LOGIN -p $DOCKER_ACCESS_TOKEN \
           && docker push ${IMAGE}
 
@@ -117,6 +116,7 @@ workflows:
             branches:
               only:
                 - main
+                - receive
 
   # Build main branch every week on Monday at 04:00 am
   weekly:
