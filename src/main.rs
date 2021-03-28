@@ -1,6 +1,10 @@
-use std::{process, str::FromStr, time::Duration};
+use std::{convert::Infallible, net::SocketAddr, process, str::FromStr, time::Duration};
 
 use anyhow::{Context, Result};
+use hyper::{
+    service::{make_service_fn, service_fn},
+    Server,
+};
 use reqwest::Client;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
@@ -12,6 +16,7 @@ use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 mod cli;
 mod config;
 mod notifiers;
+mod server;
 mod xcontest;
 
 use config::Config;
@@ -78,8 +83,49 @@ async fn main() -> Result<()> {
     // Create XContest client
     let xc = XContest::new(client.clone());
 
+    // Create Threema Gateway API instance
+    let api = threema_gateway::ApiBuilder::new(
+        &config.threema.gateway_id,
+        &config.threema.gateway_secret,
+    )
+    .with_private_key_str(&config.threema.private_key)
+    .and_then(|builder| builder.into_e2e())
+    .context("Could not create Threema Gateway API client")?;
+
+    // Listening address for HTTP server
+    let addr: SocketAddr = config
+        .server
+        .listen
+        .parse()
+        .context("Could not parse HTTP server listening address")?;
+
+    // And a MakeService to handle each HTTP connection
+    let make_service = make_service_fn(move |_conn| {
+        let api = api.clone();
+        async move {
+            Ok::<_, Infallible>(service_fn(move |req| {
+                let api = api.clone();
+                async move { server::handle_http_request(req, api).await }
+            }))
+        }
+    });
+
+    // Then bind and serve...
+    let server = Server::bind(&addr).serve(make_service);
+    tokio::spawn(async move {
+        tracing::info!("Starting HTTP server on {}", addr);
+        if let Err(e) = server.await {
+            tracing::error!("Server error: {}", e);
+        }
+    });
+
     // Main loop, run every minute
-    let mut interval = tokio::time::interval(Duration::from_secs(60));
+    let interval_duration = Duration::from_secs(60);
+    let mut interval = tokio::time::interval(interval_duration);
+    tracing::info!(
+        "Starting XContest fetch loop with {:?} interval",
+        interval_duration
+    );
     loop {
         interval.tick().await;
         match update(&pool, &xc, &client, &config).await {
