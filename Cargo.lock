@@ -1411,17 +1411,19 @@ dependencies = [
 
 [[package]]
 name = "threema-gateway"
-version = "0.14.1"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "76894e1b895dedb0014da066a6fc22542a0128037dd63e8c610669412db8af2f"
+checksum = "441402542f85159fb1f5e596fd284519740482829db4d6cf960d8269e2b555c6"
 dependencies = [
  "byteorder",
  "data-encoding",
+ "form_urlencoded",
  "log",
  "mime",
  "reqwest",
  "serde",
  "serde_json",
+ "serde_urlencoded",
  "sodiumoxide",
  "thiserror",
 ]
@@ -1859,6 +1861,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "futures",
+ "hyper",
  "lazy_static",
  "regex",
  "reqwest",

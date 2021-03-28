@@ -43,9 +43,7 @@ impl ThreemaNotifier {
             .lookup_pubkey(identity)
             .await
             .context("Could not look up recipient public key")?;
-        let recipient_key: RecipientKey = public_key
-            .parse()
-            .context("Could not parse recipient public key")?;
+        let recipient_key: RecipientKey = public_key.into();
 
         // Notification text
         let text = format!("{}\n{}", flight.title, flight.url);
@@ -85,7 +83,7 @@ impl ThreemaNotifier {
             .animated(false)
             .build()
             .context("Could not create file message")?;
-            let encrypted = self.api.encrypt_file_msg(&msg, &recipient_key);
+            let encrypted = self.api.encrypt_file_msg(&msg, &public_key.into());
 
             // Send
             self.api.send(identity, &encrypted, false).await?

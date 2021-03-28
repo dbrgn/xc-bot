@@ -5,6 +5,7 @@ use serde_derive::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub threema: ThreemaConfig,
+    pub server: ServerConfig,
     pub logging: Option<LoggingConfig>,
 }
 
@@ -16,6 +17,12 @@ pub struct ThreemaConfig {
     pub gateway_secret: String,
     /// The hex-encoded private key
     pub private_key: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct ServerConfig {
+    /// The HTTP server listening host:port string
+    pub listen: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
