@@ -6,6 +6,9 @@ jobs:
       - image: rust:1.51
     steps:
       - checkout
+      - run:
+         name: Unset CircleCI's forced conversion of HTTPS->SSH
+         command: git config --global --unset "url.ssh://git@github.com.insteadof"
       - restore_cache:
           keys:
             - v1-cargo-cache-{{ arch }}-{{ .Branch }}
@@ -35,6 +38,9 @@ jobs:
       - image: rust:1.51
     steps:
       - checkout
+      - run:
+         name: Unset CircleCI's forced conversion of HTTPS->SSH
+         command: git config --global --unset "url.ssh://git@github.com.insteadof"
       - restore_cache:
           keys:
             - v1-cargo-clippy-cache
