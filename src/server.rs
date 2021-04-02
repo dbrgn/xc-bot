@@ -2,6 +2,8 @@ use std::convert::Infallible;
 
 use bytes::Bytes;
 use hyper::{Body, Method, Request, Response, StatusCode};
+use lazy_static::lazy_static;
+use regex::Regex;
 use sqlx::{Pool, Sqlite};
 
 fn http_200() -> Response<Body> {
@@ -110,7 +112,69 @@ pub async fn handle_threema_request(
                     return http_200();
                 }
             };
-            tracing::info!("Text: {:?}", text);
+
+            macro_rules! reply {
+                ($msg:expr) => {{
+                    let reply = api.encrypt_text_msg($msg, &pubkey.into());
+                    match api.send(&msg.from, &reply, false).await {
+                        Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
+                        Err(e) => tracing::error!("Could not send reply: {}", e),
+                    }
+                }};
+            }
+
+            tracing::info!("Incoming request from {}: {:?}", msg.from, text);
+            lazy_static! {
+                static ref RE: Regex = Regex::new(
+                    r"(?x)
+                    (?P<command>[a-zA-Z]*)
+                    \s*(?P<data>.*)"
+                )
+                .unwrap();
+            }
+            let caps = match RE.captures(&text) {
+                Some(caps) => caps,
+                None => {
+                    tracing::error!("Regex did not match incoming text {:?}", &text);
+                    return http_500();
+                }
+            };
+            let command = caps.name("command").unwrap().as_str().to_ascii_lowercase();
+            match &*command {
+                "folge" | "follow" => {
+                    reply!("🚧 Noch nicht implementiert");
+                }
+                "stopp" | "stop" => {
+                    reply!("🚧 Noch nicht implementiert");
+                }
+                "liste" | "list" => {
+                    reply!("Du folgst folgenden Piloten:\n\n- 🚧 Noch nicht implementiert");
+                }
+                "github" => {
+                    reply!(
+                        "Dieser Bot ist Open Source (AGPLv3). \
+                        Den Quellcode findest du hier: https://github.com/dbrgn/xc-bot/"
+                    );
+                }
+                other => {
+                    tracing::debug!("Unknown command: {:?}", other);
+                    let nickname: &str = msg.nickname.as_ref().unwrap_or(&msg.from).trim();
+                    reply!(&format!(
+                        "Hallo {}! 👋\n\n\
+                        Mit diesem Bot kannst du Piloten im CCC (XContest Schweiz) folgen. Du kriegst dann eine sofortige Benachrichtigung, wenn diese einen neuen Flug hochladen. 🪂\n\n\
+                        Verfügbare Befehle:\n\n\
+                        - *folge _<benutzername>_*: Werde benachrichtigt, wenn der Pilot _<benutzername>_ einen neuen Flug hochlädt. Du musst dabei den Benutzernamen von XContest verwenden.\n\
+                        - *stopp _<benutzername>_*: Werde nicht mehr benachrichtigt, wenn der Pilot _<benutzername>_ einen neuen Flug hochlädt. Du musst dabei den Benutzernamen von XContest verwenden.\n\
+                        - *liste*: Zeige die Liste der Piloten, deren Flüge du abonniert hast.\n\
+                        - *github*: Zeige den Link zum Quellcode dieses Bots.\n\n\
+                        Bei Fragen, schicke einfach eine Threema-Nachricht an https://threema.id/EBEP4UCA !\
+                        ",
+                        nickname,
+                    ));
+                }
+            }
+
+            // Done processing, confirm message
             http_200()
         }
         Some(0x80) => {
