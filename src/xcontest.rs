@@ -1,6 +1,8 @@
+use std::io::Cursor;
+
 use anyhow::{Context, Result};
 use bytes::Bytes;
-
+use image::{imageops::FilterType, io::Reader as ImageReader, ImageFormat, ImageOutputFormat};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Client;
@@ -24,7 +26,9 @@ pub struct Flight {
 #[derive(Debug, Clone)]
 pub struct FlightDetails {
     /// Flight thumbnail (PNG data)
-    pub thumbnail: Bytes,
+    pub thumbnail_large: Bytes,
+    /// Flight thumbnail (max 512x512px, JPEG data)
+    pub thumbnail_small: Bytes,
 }
 
 impl Flight {
@@ -104,8 +108,20 @@ impl XContest {
         // Fetch thumbnail
         let thumbnail_resp = self.client.get(thumbnail_url).send().await?;
         thumbnail_resp.error_for_status_ref()?;
+        let thumbnail_bytes = thumbnail_resp.bytes().await?;
+
+        // Convert thumbnail to JPEG max 512x512
+        let thumbnail_resized =
+            ImageReader::with_format(Cursor::new(&thumbnail_bytes), ImageFormat::Png)
+                .decode()
+                .context("Could not decode thumbnail bytes")?
+                .resize(512, 512, FilterType::CatmullRom);
+        let mut thumbnail_resized_bytes: Vec<u8> = Vec::new();
+        thumbnail_resized.write_to(&mut thumbnail_resized_bytes, ImageOutputFormat::Jpeg(80))?;
+
         Ok(FlightDetails {
-            thumbnail: thumbnail_resp.bytes().await?,
+            thumbnail_large: thumbnail_bytes,
+            thumbnail_small: Bytes::from(thumbnail_resized_bytes),
         })
     }
 }

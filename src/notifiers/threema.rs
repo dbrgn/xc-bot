@@ -51,9 +51,8 @@ impl ThreemaNotifier {
         // Depending on whether or not we have details, we'll send a text or image message.
         let msg_id = if let Some(details) = details {
             // Encrypt file message contents
-            // TODO: Resize thumbnail
             let (file_data, thumb_data, key) =
-                encrypt_file_data(&details.thumbnail, Some(&details.thumbnail));
+                encrypt_file_data(&details.thumbnail_large, Some(&details.thumbnail_small));
             let thumb_data = thumb_data.unwrap();
 
             // Upload image data
@@ -69,16 +68,15 @@ impl ThreemaNotifier {
                 .context("Could not upload thumbnail blob")?;
 
             // Create file message
-            let mime_png = Mime::from_str("image/png").unwrap();
             let msg = FileMessage::builder(
                 file_blob_id,
                 key,
-                mime_png.clone(),
+                Mime::from_str("image/png").unwrap(),
                 file_data.len().try_into().unwrap(),
             )
-            .thumbnail(thumb_blob_id, mime_png)
+            .thumbnail(thumb_blob_id, Mime::from_str("image/jpeg").unwrap())
             .description(text)
-            .file_name("thumbnail.png")
+            .file_name("preview.png")
             .rendering_type(RenderingType::Media)
             .animated(false)
             .build()
