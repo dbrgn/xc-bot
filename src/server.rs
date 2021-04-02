@@ -161,11 +161,16 @@ pub async fn handle_threema_request(
             let command = caps.name("command").unwrap().as_str().to_ascii_lowercase();
             match &*command {
                 "folge" | "follow" | "add" => {
+                    let usage = "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
+                        (Beispiel: \"folge chrigel\"). \
+                        Du musst dabei den Benutzernamen von XContest verwenden.";
                     if let Some(data) = caps.name("data") {
                         let uid = get_uid!();
                         let pilot = data.as_str().trim();
-                        if pilot.contains(' ') {
-                            reply!("⚠️ Fehler: Der XContest-Benutzername darf kein Leerzeichen enthalten!");
+                        if pilot.is_empty() {
+                            reply!(usage);
+                        } else if pilot.contains(' ') {
+                            reply!(&format!("⚠️ Fehler: Der XContest-Benutzername darf kein Leerzeichen enthalten!\n\n{}", usage));
                         } else {
                             match db::add_subscription(&pool, uid, pilot).await {
                                 Ok(_) => reply!(&format!("Du folgst jetzt {}!", pilot)),
@@ -176,31 +181,32 @@ pub async fn handle_threema_request(
                             }
                         }
                     } else {
-                        reply!(
-                            "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
-                            (Beispiel: \"folge chrigel\"). \
-                            Du musst dabei den Benutzernamen von XContest verwenden."
-                        );
+                        reply!(usage);
                     }
                 }
                 "stopp" | "stop" | "remove" => {
+                    let usage = "Um einem Piloten zu entfolgen, sende \"stopp _<benutzername>_\" \
+                        (Beispiel: \"stopp chrigel\"). \
+                        Du musst dabei den Benutzernamen von XContest verwenden.";
                     if let Some(data) = caps.name("data") {
                         let uid = get_uid!();
                         let pilot = data.as_str().trim();
-                        match db::remove_subscription(&pool, uid, pilot).await {
-                            Ok(true) => reply!(&format!("Du folgst jetzt {} nicht mehr.", pilot)),
-                            Ok(false) => reply!(&format!("Du folgst jetzt {} nicht.", pilot)),
-                            Err(e) => {
-                                tracing::error!("Could not remove subscription: {}", e);
-                                return http_500();
+                        if pilot.is_empty() {
+                            reply!(usage);
+                        } else {
+                            match db::remove_subscription(&pool, uid, pilot).await {
+                                Ok(true) => {
+                                    reply!(&format!("Du folgst jetzt {} nicht mehr.", pilot))
+                                }
+                                Ok(false) => reply!(&format!("Du folgst {} nicht.", pilot)),
+                                Err(e) => {
+                                    tracing::error!("Could not remove subscription: {}", e);
+                                    return http_500();
+                                }
                             }
                         }
                     } else {
-                        reply!(
-                            "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
-                            (Beispiel: \"folge chrigel\"). \
-                            Du musst dabei den Benutzernamen von XContest verwenden."
-                        );
+                        reply!(usage);
                     }
                 }
                 "liste" | "list" => {
