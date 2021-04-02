@@ -37,7 +37,7 @@ impl<'a> Notifier<'a> {
             SELECT u.username, u.usertype
             FROM subscriptions s
             INNER JOIN users u ON s.user_id = u.id
-            WHERE s.pilot_username = ?
+            WHERE s.pilot_username = ? COLLATE NOCASE
             "#,
         )
         .bind(&flight.pilot_username)
