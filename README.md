@@ -2,8 +2,6 @@
 
 [![CircleCI][circle-ci-badge]][circle-ci]
 
-**WORK IN PROGRESS**
-
 A chat bot that notifies you about new paragliding cross-country flights
 published on [XContest](https://www.xcontest.org/) as part of the Swiss [Cross
 Country Cup](https://www.xcontest.org/switzerland/de/). Inspired by the
@@ -11,7 +9,7 @@ Telegram bot [XC Switzerland](https://telegram.me/XC_Swiss_Bot) by Sergey Popov.
 
 Supported messenger backends:
 
-- Threema
+- Threema: https://threema.id/*CHXCBOT?text=help
 
 More may follow in the future.
 
