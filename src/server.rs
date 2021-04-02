@@ -249,7 +249,7 @@ pub async fn handle_threema_request(
                         - *stopp _<benutzername>_*: Werde nicht mehr benachrichtigt, wenn der Pilot _<benutzername>_ einen neuen Flug hochlädt. Du musst dabei den Benutzernamen von XContest verwenden.\n\
                         - *liste*: Zeige die Liste der Piloten, deren Flüge du abonniert hast.\n\
                         - *github*: Zeige den Link zum Quellcode dieses Bots.\n\n\
-                        Bei Fragen, schicke einfach eine Threema-Nachricht an https://threema.id/EBEP4UCA !\
+                        Bei Fragen, schicke einfach eine Threema-Nachricht an https://threema.id/EBEP4UCA?text= !\
                         ",
                         nickname,
                     ));
