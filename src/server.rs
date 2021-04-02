@@ -52,7 +52,10 @@ pub async fn handle_http_request(
                     return Ok(http_500());
                 }
             };
-            tracing::info!("Raw message: {:?}", msg);
+            let span = tracing::info_span!("incoming_message", from = &*msg.from, id = &*msg.message_id);
+            let _enter = span.enter();
+            tracing::trace!("Incoming message from {}", msg.from);
+            tracing::trace!("Raw message: {:?}", msg);
 
             // Fetch sender public key
             // TODO: Cache
@@ -72,7 +75,7 @@ pub async fn handle_http_request(
                     return Ok(http_500());
                 }
             };
-            tracing::info!("Data: {:?}", data);
+            tracing::debug!("Decrypted data: {:?}", data);
 
             // Handle depending on type
             Ok(match data.get(0) {
