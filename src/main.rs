@@ -100,12 +100,15 @@ async fn main() -> Result<()> {
         .context("Could not parse HTTP server listening address")?;
 
     // And a MakeService to handle each HTTP connection
+    let pool_clone = pool.clone();
     let make_service = make_service_fn(move |_conn| {
         let api = api.clone();
+        let pool = pool_clone.clone();
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 let api = api.clone();
-                async move { server::handle_http_request(req, api).await }
+                let pool = pool.clone();
+                async move { server::handle_http_request(req, api, pool).await }
             }))
         }
     });
