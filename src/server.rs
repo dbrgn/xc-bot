@@ -160,11 +160,48 @@ pub async fn handle_threema_request(
             };
             let command = caps.name("command").unwrap().as_str().to_ascii_lowercase();
             match &*command {
-                "folge" | "follow" => {
-                    reply!("🚧 Noch nicht implementiert");
+                "folge" | "follow" | "add" => {
+                    if let Some(data) = caps.name("data") {
+                        let uid = get_uid!();
+                        let pilot = data.as_str().trim();
+                        if pilot.contains(' ') {
+                            reply!("⚠️ Fehler: Der XContest-Benutzername darf kein Leerzeichen enthalten!");
+                        } else {
+                            match db::add_subscription(&pool, uid, pilot).await {
+                                Ok(_) => reply!(&format!("Du folgst jetzt {}!", pilot)),
+                                Err(e) => {
+                                    tracing::error!("Could not add subscription: {}", e);
+                                    return http_500();
+                                }
+                            }
+                        }
+                    } else {
+                        reply!(
+                            "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
+                            (Beispiel: \"folge chrigel\"). \
+                            Du musst dabei den Benutzernamen von XContest verwenden."
+                        );
+                    }
                 }
                 "stopp" | "stop" => {
-                    reply!("🚧 Noch nicht implementiert");
+                    if let Some(data) = caps.name("data") {
+                        let uid = get_uid!();
+                        let pilot = data.as_str().trim();
+                        match db::remove_subscription(&pool, uid, pilot).await {
+                            Ok(true) => reply!(&format!("Du folgst jetzt {} nicht mehr.", pilot)),
+                            Ok(false) => reply!(&format!("Du folgst jetzt {} nicht.", pilot)),
+                            Err(e) => {
+                                tracing::error!("Could not remove subscription: {}", e);
+                                return http_500();
+                            }
+                        }
+                    } else {
+                        reply!(
+                            "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
+                            (Beispiel: \"folge chrigel\"). \
+                            Du musst dabei den Benutzernamen von XContest verwenden."
+                        );
+                    }
                 }
                 "liste" | "list" => {
                     let uid = get_uid!();
@@ -177,7 +214,7 @@ pub async fn handle_threema_request(
                     };
                     if subscriptions.is_empty() {
                         reply!(
-                            "Du folgst noch keinen Piloten. \
+                            "Du folgst noch keinen Piloten.\n\n\
                             Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" (Beispiel: \"folge chrigel\"). \
                             Du musst dabei den Benutzernamen von XContest verwenden."
                         );

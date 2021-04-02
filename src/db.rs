@@ -61,3 +61,46 @@ pub async fn get_subscriptions(pool: &Pool<Sqlite>, uid: i32) -> Result<Vec<Stri
 
     Ok(subscriptions)
 }
+
+/// Add a subscription for the user with the specified user ID.
+pub async fn add_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> Result<()> {
+    // Get connection
+    let mut conn = pool
+        .acquire()
+        .await
+        .context("Could not acquire db connection")?;
+
+    // Add subscription
+    sqlx::query("INSERT OR IGNORE INTO subscriptions (user_id, pilot_username) VALUES (?, ?)")
+        .bind(uid)
+        .bind(pilot)
+        .execute(&mut conn)
+        .await
+        .context("Could not add subscription")?;
+
+    Ok(())
+}
+
+/// Remove a subscription for the user with the specified user ID.
+///
+/// Return whether a subscription was removed or not.
+pub async fn remove_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> Result<bool> {
+    // Start transaction
+    let mut transaction = pool.begin().await.context("Could not start transaction")?;
+
+    // Remove subscription
+    sqlx::query("DELETE FROM subscriptions WHERE user_id = ? AND pilot_username = ?")
+        .bind(uid)
+        .bind(pilot)
+        .execute(&mut transaction)
+        .await
+        .context("Could not remove subscription")?;
+
+    // Get number of modified rows
+    let deleted: bool = sqlx::query_scalar("SELECT changes() > 0")
+        .fetch_one(&mut transaction)
+        .await
+        .context("Could not query number of deleted rows")?;
+
+    Ok(deleted)
+}
