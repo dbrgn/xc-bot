@@ -3,10 +3,10 @@ use std::convert::Infallible;
 use bytes::Bytes;
 use hyper::{Body, Method, Request, Response, StatusCode};
 
-fn http_204() -> Response<Body> {
+fn http_200() -> Response<Body> {
     Response::builder()
-        .status(StatusCode::NO_CONTENT)
-        .body(Body::empty())
+        .status(StatusCode::OK)
+        .body(Body::from(""))
         .unwrap()
 }
 
@@ -85,21 +85,21 @@ pub async fn handle_http_request(
                         Ok(decoded) => decoded,
                         Err(_) => {
                             tracing::warn!("Received non-UTF8 bytes: {:?}, discarding", &data[1..]);
-                            return Ok(http_204());
+                            return Ok(http_200());
                         }
                     };
                     tracing::info!("Text: {:?}", text);
-                    http_204()
+                    http_200()
                 }
                 Some(0x80) => {
                     // Delivery receipt, ignore
                     tracing::info!("Ignoring delivery receipt");
-                    http_204()
+                    http_200()
                 }
                 Some(other) => {
                     // Unsupported message type, ignore
                     tracing::warn!("Ignoring unsupported message type: {}", other);
-                    http_204()
+                    http_200()
                 }
                 None => {
                     // Empty data
