@@ -15,6 +15,7 @@ use tracing_subscriber::{fmt::format::FmtSpan, FmtSubscriber};
 
 mod cli;
 mod config;
+mod db;
 mod notifiers;
 mod server;
 mod xcontest;

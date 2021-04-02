@@ -6,6 +6,8 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use sqlx::{Pool, Sqlite};
 
+use crate::db;
+
 fn http_200() -> Response<Body> {
     Response::builder()
         .status(StatusCode::OK)
@@ -66,7 +68,7 @@ pub async fn handle_http_request(
 pub async fn handle_threema_request(
     bytes: Bytes,
     api: threema_gateway::E2eApi,
-    _pool: Pool<Sqlite>,
+    pool: Pool<Sqlite>,
 ) -> Response<Body> {
     // Parse body
     let msg = match api.decode_incoming_message(bytes) {
@@ -101,6 +103,33 @@ pub async fn handle_threema_request(
     };
     tracing::debug!("Decrypted data: {:?}", data);
 
+    /// Macro: Create or fetch user
+    macro_rules! get_uid {
+        () => {{
+            match db::get_or_create_user(&pool, &msg.from, "threema").await {
+                Ok(uid) => {
+                    tracing::debug!("User ID: {}", uid);
+                    uid
+                }
+                Err(e) => {
+                    tracing::error!("Error in get_or_create_user: {}", e);
+                    return http_500();
+                }
+            }
+        }};
+    }
+
+    /// Macro: Reply to sender
+    macro_rules! reply {
+        ($msg:expr) => {{
+            let reply = api.encrypt_text_msg($msg, &pubkey.into());
+            match api.send(&msg.from, &reply, false).await {
+                Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
+                Err(e) => tracing::error!("Could not send reply: {}", e),
+            }
+        }};
+    }
+
     // Handle depending on type
     match data.get(0) {
         Some(0x01) => {
@@ -112,16 +141,6 @@ pub async fn handle_threema_request(
                     return http_200();
                 }
             };
-
-            macro_rules! reply {
-                ($msg:expr) => {{
-                    let reply = api.encrypt_text_msg($msg, &pubkey.into());
-                    match api.send(&msg.from, &reply, false).await {
-                        Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
-                        Err(e) => tracing::error!("Could not send reply: {}", e),
-                    }
-                }};
-            }
 
             tracing::info!("Incoming request from {}: {:?}", msg.from, text);
             lazy_static! {
@@ -148,7 +167,28 @@ pub async fn handle_threema_request(
                     reply!("🚧 Noch nicht implementiert");
                 }
                 "liste" | "list" => {
-                    reply!("Du folgst folgenden Piloten:\n\n- 🚧 Noch nicht implementiert");
+                    let uid = get_uid!();
+                    let subscriptions = match db::get_subscriptions(&pool, uid).await {
+                        Ok(subs) => subs,
+                        Err(e) => {
+                            tracing::error!("Could not fetch subscriptions for uid {}: {}", uid, e);
+                            return http_500();
+                        }
+                    };
+                    if subscriptions.is_empty() {
+                        reply!(
+                            "Du folgst noch keinen Piloten. \
+                            Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" (Beispiel: \"folge chrigel\"). \
+                            Du musst dabei den Benutzernamen von XContest verwenden."
+                        );
+                    } else {
+                        let mut reply = String::from("Du folgst folgenden Piloten:\n");
+                        for pilot in subscriptions {
+                            reply.push_str("\n- ");
+                            reply.push_str(&pilot);
+                        }
+                        reply!(&reply);
+                    }
                 }
                 "github" => {
                     reply!(
