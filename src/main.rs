@@ -23,10 +23,10 @@ mod xcontest;
 use config::Config;
 use xcontest::XContest;
 
-const NAME: &str = "XC Bot";
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
-const DESCRIPTION: &str =
+pub(crate) const NAME: &str = "XC Bot";
+pub(crate) const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub(crate) const AUTHOR: &str = env!("CARGO_PKG_AUTHORS");
+pub(crate) const DESCRIPTION: &str =
     "A chat bot that notifies you about new paragliding cross-country flights.";
 
 #[tokio::main]

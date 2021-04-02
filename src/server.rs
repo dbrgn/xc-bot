@@ -183,7 +183,7 @@ pub async fn handle_threema_request(
                         );
                     }
                 }
-                "stopp" | "stop" => {
+                "stopp" | "stop" | "remove" => {
                     if let Some(data) = caps.name("data") {
                         let uid = get_uid!();
                         let pilot = data.as_str().trim();
@@ -227,12 +227,11 @@ pub async fn handle_threema_request(
                         reply!(&reply);
                     }
                 }
-                "github" => {
-                    reply!(
-                        "Dieser Bot ist Open Source (AGPLv3). \
-                        Den Quellcode findest du hier: https://github.com/dbrgn/xc-bot/"
-                    );
-                }
+                "github" => reply!(
+                    "Dieser Bot ist Open Source (AGPLv3). \
+                    Den Quellcode findest du hier: https://github.com/dbrgn/xc-bot/"
+                ),
+                "version" => reply!(&format!("xc-bot v{}", crate::VERSION)),
                 other => {
                     tracing::debug!("Unknown command: {:?}", other);
                     let nickname: &str = msg.nickname.as_ref().unwrap_or(&msg.from).trim();
