@@ -102,5 +102,11 @@ pub async fn remove_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> 
         .await
         .context("Could not query number of deleted rows")?;
 
+    // Commit transaction
+    transaction
+        .commit()
+        .await
+        .context("Could not commit transaction")?;
+
     Ok(deleted)
 }
