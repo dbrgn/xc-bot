@@ -144,7 +144,7 @@ async fn main() -> Result<()> {
 }
 
 /// This function will be called regularly to fetch new flights.
-#[tracing::instrument(skip(pool, xc, client, config))]
+#[tracing::instrument(level = "debug", skip(pool, xc, client, config))]
 async fn update(
     pool: &Pool<Sqlite>,
     xc: &XContest,

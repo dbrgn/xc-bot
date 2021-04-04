@@ -80,7 +80,7 @@ pub async fn handle_threema_request(
             return http_500();
         }
     };
-    let span = tracing::info_span!("incoming_message", from = &*msg.from, id = &*msg.message_id);
+    let span = tracing::debug_span!("incoming_message", from = &*msg.from, id = &*msg.message_id);
     let _enter = span.enter();
     tracing::trace!("Incoming message from {}", msg.from);
     tracing::trace!("Raw message: {:?}", msg);
