@@ -4,45 +4,44 @@ use std::{convert::TryInto, str::FromStr};
 
 use anyhow::{Context, Result};
 use reqwest::Client;
+use sqlx::{Pool, Sqlite};
 use threema_gateway::{
     encrypt_file_data, ApiBuilder, E2eApi, FileMessage, Mime, RecipientKey, RenderingType,
 };
 
 use crate::{
     config::ThreemaConfig,
+    db::User,
+    threema,
     xcontest::{Flight, FlightDetails},
 };
 
 pub struct ThreemaNotifier {
     api: E2eApi,
+    pool: Pool<Sqlite>,
 }
 
 impl ThreemaNotifier {
-    pub fn new(config: &ThreemaConfig, client: Client) -> Result<Self> {
+    pub fn new(config: &ThreemaConfig, client: Client, pool: Pool<Sqlite>) -> Result<Self> {
         let api = ApiBuilder::new(&config.gateway_id, &config.gateway_secret)
             .with_client(client)
             .with_private_key_str(&config.private_key)
             .and_then(|builder| builder.into_e2e())
             .context("Could not create Threema API object")?;
-        Ok(Self { api })
+        Ok(Self { api, pool })
     }
 
-    /// Notify the Threema user with the specified `identity` about the flight.
+    /// Notify the specified Threema user about the flight.
     pub async fn notify(
         &mut self,
         flight: &Flight,
         details: Option<&FlightDetails>,
-        identity: &str,
+        user: &User,
     ) -> Result<()> {
         tracing::debug!("notify");
 
         // Fetch public key of recipient
-        // TODO: Cache
-        let public_key = self
-            .api
-            .lookup_pubkey(identity)
-            .await
-            .context("Could not look up recipient public key")?;
+        let public_key = threema::get_public_key(&user, &self.api, &self.pool).await?;
         let recipient_key: RecipientKey = public_key.into();
 
         // Notification text
@@ -84,13 +83,13 @@ impl ThreemaNotifier {
             let encrypted = self.api.encrypt_file_msg(&msg, &public_key.into());
 
             // Send
-            self.api.send(identity, &encrypted, false).await?
+            self.api.send(&user.username, &encrypted, false).await?
         } else {
             // Encrypt simple notification text message
             let encrypted = self.api.encrypt_text_msg(&text, &recipient_key);
 
             // Send
-            self.api.send(identity, &encrypted, false).await?
+            self.api.send(&user.username, &encrypted, false).await?
         };
 
         tracing::debug!("Notification sent, message id is {}", msg_id);

@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use sqlx::{Pool, Sqlite};
 
-use crate::db;
+use crate::{db, threema};
 
 fn http_200() -> Response<Body> {
     Response::builder()
@@ -83,10 +83,21 @@ pub async fn handle_threema_request(
     tracing::trace!("Incoming message from {}", msg.from);
     tracing::trace!("Raw message: {:?}", msg);
 
+    // Fetch user
+    let user = match db::get_or_create_user(&pool, &msg.from, "threema").await {
+        Ok(user) => {
+            tracing::debug!("User ID: {}", user.id);
+            user
+        }
+        Err(e) => {
+            tracing::error!("Error in get_or_create_user: {}", e);
+            return http_500();
+        }
+    };
+
     // Fetch sender public key
-    // TODO: Cache
-    let pubkey = match api.lookup_pubkey(&msg.from).await {
-        Ok(key) => key,
+    let public_key = match threema::get_public_key(&user, &api, &pool).await {
+        Ok(pk) => pk,
         Err(e) => {
             tracing::error!("Could not fetch public key for {}: {}", &msg.from, e);
             return http_500();
@@ -94,7 +105,7 @@ pub async fn handle_threema_request(
     };
 
     // Decrypt
-    let data = match api.decrypt_incoming_message(&msg, &pubkey) {
+    let data = match api.decrypt_incoming_message(&msg, &public_key) {
         Ok(key) => key,
         Err(e) => {
             tracing::error!("Could not fetch public key for {}: {}", &msg.from, e);
@@ -103,26 +114,10 @@ pub async fn handle_threema_request(
     };
     tracing::debug!("Decrypted data: {:?}", data);
 
-    /// Macro: Create or fetch user
-    macro_rules! get_user {
-        () => {{
-            match db::get_or_create_user(&pool, &msg.from, "threema").await {
-                Ok(user) => {
-                    tracing::debug!("User ID: {}", user.id);
-                    user
-                }
-                Err(e) => {
-                    tracing::error!("Error in get_or_create_user: {}", e);
-                    return http_500();
-                }
-            }
-        }};
-    }
-
     /// Macro: Reply to sender
     macro_rules! reply {
         ($msg:expr) => {{
-            let reply = api.encrypt_text_msg($msg, &pubkey.into());
+            let reply = api.encrypt_text_msg($msg, &public_key.into());
             match api.send(&msg.from, &reply, false).await {
                 Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
                 Err(e) => tracing::error!("Could not send reply: {}", e),
@@ -165,7 +160,6 @@ pub async fn handle_threema_request(
                         (Beispiel: \"folge chrigel\"). \
                         Du musst dabei den Benutzernamen von XContest verwenden.";
                     if let Some(data) = caps.name("data") {
-                        let user = get_user!();
                         let pilot = data.as_str().trim();
                         if pilot.is_empty() {
                             reply!(usage);
@@ -189,7 +183,6 @@ pub async fn handle_threema_request(
                         (Beispiel: \"stopp chrigel\"). \
                         Du musst dabei den Benutzernamen von XContest verwenden.";
                     if let Some(data) = caps.name("data") {
-                        let user = get_user!();
                         let pilot = data.as_str().trim();
                         if pilot.is_empty() {
                             reply!(usage);
@@ -210,7 +203,6 @@ pub async fn handle_threema_request(
                     }
                 }
                 "liste" | "list" => {
-                    let user = get_user!();
                     let subscriptions = match db::get_subscriptions(&pool, user.id).await {
                         Ok(subs) => subs,
                         Err(e) => {

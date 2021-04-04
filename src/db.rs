@@ -66,7 +66,7 @@ pub async fn get_or_create_user(
 }
 
 /// Return the subscriptions of the user with the specified user ID, sorted by name.
-pub async fn get_subscriptions(pool: &Pool<Sqlite>, uid: i32) -> Result<Vec<String>> {
+pub async fn get_subscriptions(pool: &Pool<Sqlite>, user_id: i32) -> Result<Vec<String>> {
     // Get connection
     let mut conn = pool
         .acquire()
@@ -76,7 +76,7 @@ pub async fn get_subscriptions(pool: &Pool<Sqlite>, uid: i32) -> Result<Vec<Stri
     // Fetch subscriptions
     let subscriptions =
         sqlx::query_scalar("SELECT pilot_username FROM subscriptions WHERE user_id = ? ORDER BY pilot_username COLLATE NOCASE ASC")
-            .bind(uid)
+            .bind(user_id)
             .fetch_all(&mut conn)
             .await
             .context("Could not fetch subscriptions")?;
@@ -85,7 +85,7 @@ pub async fn get_subscriptions(pool: &Pool<Sqlite>, uid: i32) -> Result<Vec<Stri
 }
 
 /// Add a subscription for the user with the specified user ID.
-pub async fn add_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> Result<()> {
+pub async fn add_subscription(pool: &Pool<Sqlite>, user_id: i32, pilot: &str) -> Result<()> {
     // Get connection
     let mut conn = pool
         .acquire()
@@ -94,7 +94,7 @@ pub async fn add_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> Res
 
     // Add subscription
     sqlx::query("INSERT OR IGNORE INTO subscriptions (user_id, pilot_username) VALUES (?, ?)")
-        .bind(uid)
+        .bind(user_id)
         .bind(pilot)
         .execute(&mut conn)
         .await
@@ -106,13 +106,13 @@ pub async fn add_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> Res
 /// Remove a subscription for the user with the specified user ID.
 ///
 /// Return whether a subscription was removed or not.
-pub async fn remove_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> Result<bool> {
+pub async fn remove_subscription(pool: &Pool<Sqlite>, user_id: i32, pilot: &str) -> Result<bool> {
     // Start transaction
     let mut transaction = pool.begin().await.context("Could not start transaction")?;
 
     // Remove subscription
     sqlx::query("DELETE FROM subscriptions WHERE user_id = ? AND pilot_username = ?")
-        .bind(uid)
+        .bind(user_id)
         .bind(pilot)
         .execute(&mut transaction)
         .await
@@ -131,4 +131,27 @@ pub async fn remove_subscription(pool: &Pool<Sqlite>, uid: i32, pilot: &str) -> 
         .context("Could not commit transaction")?;
 
     Ok(deleted)
+}
+
+/// Store a cached Threema public key for the specified user.
+pub async fn cache_public_key(
+    pool: &Pool<Sqlite>,
+    user_id: i32,
+    public_key: &PublicKey,
+) -> Result<()> {
+    // Get connection
+    let mut conn = pool
+        .acquire()
+        .await
+        .context("Could not acquire db connection")?;
+
+    // Update cached public key
+    sqlx::query("UPDATE users SET threema_public_key = ? WHERE id = ?")
+        .bind(public_key.as_ref())
+        .bind(user_id)
+        .execute(&mut conn)
+        .await
+        .context("Could not cache public key")?;
+
+    Ok(())
 }

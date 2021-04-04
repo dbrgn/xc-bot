@@ -18,6 +18,7 @@ mod config;
 mod db;
 mod notifiers;
 mod server;
+mod threema;
 mod xcontest;
 
 use config::Config;
@@ -202,7 +203,7 @@ async fn update(
                 None
             }
         };
-        let mut notifier = match notifiers::Notifier::new(&mut conn, client.clone(), &config) {
+        let mut notifier = match notifiers::Notifier::new(pool.clone(), client.clone(), &config) {
             Ok(n) => n,
             Err(e) => {
                 tracing::error!("Could not instantiate notifier: {}", e);
