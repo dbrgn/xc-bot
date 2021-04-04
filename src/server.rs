@@ -104,12 +104,12 @@ pub async fn handle_threema_request(
     tracing::debug!("Decrypted data: {:?}", data);
 
     /// Macro: Create or fetch user
-    macro_rules! get_uid {
+    macro_rules! get_user {
         () => {{
             match db::get_or_create_user(&pool, &msg.from, "threema").await {
-                Ok(uid) => {
-                    tracing::debug!("User ID: {}", uid);
-                    uid
+                Ok(user) => {
+                    tracing::debug!("User ID: {}", user.id);
+                    user
                 }
                 Err(e) => {
                     tracing::error!("Error in get_or_create_user: {}", e);
@@ -165,14 +165,14 @@ pub async fn handle_threema_request(
                         (Beispiel: \"folge chrigel\"). \
                         Du musst dabei den Benutzernamen von XContest verwenden.";
                     if let Some(data) = caps.name("data") {
-                        let uid = get_uid!();
+                        let user = get_user!();
                         let pilot = data.as_str().trim();
                         if pilot.is_empty() {
                             reply!(usage);
                         } else if pilot.contains(' ') {
                             reply!(&format!("⚠️ Fehler: Der XContest-Benutzername darf kein Leerzeichen enthalten!\n\n{}", usage));
                         } else {
-                            match db::add_subscription(&pool, uid, pilot).await {
+                            match db::add_subscription(&pool, user.id, pilot).await {
                                 Ok(_) => reply!(&format!("Du folgst jetzt {}!", pilot)),
                                 Err(e) => {
                                     tracing::error!("Could not add subscription: {}", e);
@@ -189,12 +189,12 @@ pub async fn handle_threema_request(
                         (Beispiel: \"stopp chrigel\"). \
                         Du musst dabei den Benutzernamen von XContest verwenden.";
                     if let Some(data) = caps.name("data") {
-                        let uid = get_uid!();
+                        let user = get_user!();
                         let pilot = data.as_str().trim();
                         if pilot.is_empty() {
                             reply!(usage);
                         } else {
-                            match db::remove_subscription(&pool, uid, pilot).await {
+                            match db::remove_subscription(&pool, user.id, pilot).await {
                                 Ok(true) => {
                                     reply!(&format!("Du folgst jetzt {} nicht mehr.", pilot))
                                 }
@@ -210,11 +210,11 @@ pub async fn handle_threema_request(
                     }
                 }
                 "liste" | "list" => {
-                    let uid = get_uid!();
-                    let subscriptions = match db::get_subscriptions(&pool, uid).await {
+                    let user = get_user!();
+                    let subscriptions = match db::get_subscriptions(&pool, user.id).await {
                         Ok(subs) => subs,
                         Err(e) => {
-                            tracing::error!("Could not fetch subscriptions for uid {}: {}", uid, e);
+                            tracing::error!("Could not fetch subscriptions for uid {}: {}", user.id, e);
                             return http_500();
                         }
                     };

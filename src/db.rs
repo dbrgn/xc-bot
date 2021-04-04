@@ -1,16 +1,38 @@
 //! Database related functions.
 
 use anyhow::{Context, Result};
-use sqlx::{Pool, Sqlite};
+use sqlx::{sqlite::SqliteRow, FromRow, Pool, Row, Sqlite};
+use threema_gateway::PublicKey;
 
-/// Return the user ID of the specified user.
+#[derive(Debug)]
+pub struct User {
+    pub id: i32,
+    pub username: String,
+    pub usertype: String,
+    pub threema_public_key: Option<PublicKey>,
+}
+
+impl FromRow<'_, SqliteRow> for User {
+    fn from_row(row: &SqliteRow) -> std::result::Result<Self, sqlx::Error> {
+        Ok(Self {
+            id: row.try_get("id")?,
+            username: row.try_get("username")?,
+            usertype: row.try_get("usertype")?,
+            threema_public_key: row
+                .try_get::<Option<Vec<u8>>, _>("threema_public_key")?
+                .and_then(|bytes: Vec<u8>| PublicKey::from_slice(&bytes)),
+        })
+    }
+}
+
+/// Return the specified user.
 ///
 /// If the user does not yet exist, create it.
 pub async fn get_or_create_user(
     pool: &Pool<Sqlite>,
     username: &str,
     usertype: &str,
-) -> Result<i32> {
+) -> Result<User> {
     // Start transaction
     let mut transaction = pool.begin().await.context("Could not start transaction")?;
 
@@ -28,7 +50,7 @@ pub async fn get_or_create_user(
     .context(format!("Could not create user {}/{}", usertype, username))?;
 
     // Fetch user
-    let uid: i32 = sqlx::query_scalar("SELECT id FROM users WHERE username = ? AND usertype = ?")
+    let user: User = sqlx::query_as("SELECT id, username, usertype, threema_public_key FROM users WHERE username = ? AND usertype = ?")
         .bind(username)
         .bind(usertype)
         .fetch_one(&mut transaction)
@@ -40,7 +62,7 @@ pub async fn get_or_create_user(
         .commit()
         .await
         .context("Could not commit transaction")?;
-    Ok(uid)
+    Ok(user)
 }
 
 /// Return the subscriptions of the user with the specified user ID, sorted by name.
