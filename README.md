@@ -13,6 +13,28 @@ Supported messenger backends:
 
 More may follow in the future.
 
+## Usage
+
+Show the help screen:
+
+    help
+
+Follow a pilot:
+
+    follow <username>
+
+List pilots being followed:
+
+    list
+
+Stop following a pilot:
+
+    stop <username>
+
+Show the current bot version:
+
+    version
+
 ## Architecture
 
 The bot is written in Rust using a SQLite database for keeping track of the
