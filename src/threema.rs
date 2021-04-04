@@ -24,11 +24,10 @@ pub async fn get_public_key(user: &User, api: &E2eApi, pool: &Pool<Sqlite>) -> R
                 .context("Could not look up recipient public key")?;
 
             // Cache public key
-            let pubkey_clone = pubkey.clone();
             let pool_clone = pool.clone();
             let user_id = user.id;
             tokio::spawn(async move {
-                if let Err(e) = cache_public_key(&pool_clone, user_id, &pubkey_clone).await {
+                if let Err(e) = cache_public_key(&pool_clone, user_id, &pubkey).await {
                     tracing::error!(
                         "Could not cache public key for user with id {}: {}",
                         user_id,
