@@ -25,6 +25,16 @@ impl FromRow<'_, SqliteRow> for User {
     }
 }
 
+#[derive(Debug, FromRow)]
+pub struct Stats {
+    /// Number of users
+    pub user_count: u32,
+    /// Number of subscriptions
+    pub subscription_count: u32,
+    /// Number of flights
+    pub flight_count: u32,
+}
+
 /// Return the specified user.
 ///
 /// If the user does not yet exist, create it.
@@ -154,4 +164,26 @@ pub async fn cache_public_key(
         .context("Could not cache public key")?;
 
     Ok(())
+}
+
+/// Return database stats.
+pub async fn get_stats(pool: &Pool<Sqlite>) -> Result<Stats> {
+    // Get connection
+    let mut conn = pool
+        .acquire()
+        .await
+        .context("Could not acquire db connection")?;
+
+    // Update cached public key
+    sqlx::query_as(
+        r#"
+        SELECT
+            (SELECT count(*) FROM users) as user_count,
+            (SELECT count(*) FROM subscriptions) as subscription_count,
+            (SELECT count(*) FROM xcontest_flights) as flight_count;
+        "#,
+    )
+    .fetch_one(&mut conn)
+    .await
+    .context("Could not fetch stats")
 }

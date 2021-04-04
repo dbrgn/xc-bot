@@ -6,7 +6,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use sqlx::{Pool, Sqlite};
 
-use crate::{db, threema};
+use crate::{config::Config, db, threema};
 
 fn http_200() -> Response<Body> {
     Response::builder()
@@ -30,11 +30,12 @@ fn http_500() -> Response<Body> {
 }
 
 /// Handle an incoming HTTP request.
-#[tracing::instrument(skip(req, api, pool))]
+#[tracing::instrument(skip(req, api, pool, config))]
 pub async fn handle_http_request(
     req: Request<Body>,
     api: threema_gateway::E2eApi,
     pool: Pool<Sqlite>,
+    config: Config,
 ) -> Result<Response<Body>, Infallible> {
     let path = req.uri().path();
     let method = req.method();
@@ -51,7 +52,7 @@ pub async fn handle_http_request(
             };
 
             // Process message
-            let response = handle_threema_request(body, api, pool).await;
+            let response = handle_threema_request(body, api, pool, config).await;
             tracing::info!("Responding with HTTP {}", response.status());
             Ok(response)
         }
@@ -69,6 +70,7 @@ pub async fn handle_threema_request(
     bytes: Bytes,
     api: threema_gateway::E2eApi,
     pool: Pool<Sqlite>,
+    config: Config,
 ) -> Response<Body> {
     // Parse body
     let msg = match api.decode_incoming_message(bytes) {
@@ -155,6 +157,16 @@ pub async fn handle_threema_request(
             };
             let command = caps.name("command").unwrap().as_str().to_ascii_lowercase();
             match &*command {
+                "stats" if Some(&msg.from) == config.threema.admin_id.as_ref() => {
+                    tracing::info!("Received stats request from admin {}", msg.from);
+                    match db::get_stats(&pool).await {
+                        Ok(stats) => reply!(&format!(
+                            "Database stats:\n\n- Users: {}\n- Subscriptions: {}\n- Flights: {}",
+                            stats.user_count, stats.subscription_count, stats.flight_count
+                        )),
+                        Err(e) => tracing::error!("Could not fetch stats: {}", e),
+                    }
+                }
                 "folge" | "follow" | "add" => {
                     let usage = "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
                         (Beispiel: \"folge chrigel\"). \
@@ -206,7 +218,11 @@ pub async fn handle_threema_request(
                     let subscriptions = match db::get_subscriptions(&pool, user.id).await {
                         Ok(subs) => subs,
                         Err(e) => {
-                            tracing::error!("Could not fetch subscriptions for uid {}: {}", user.id, e);
+                            tracing::error!(
+                                "Could not fetch subscriptions for uid {}: {}",
+                                user.id,
+                                e
+                            );
                             return http_500();
                         }
                     };

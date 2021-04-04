@@ -54,7 +54,7 @@ async fn main() -> Result<()> {
         .with_span_events(FmtSpan::CLOSE)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting tracing default failed");
-    tracing::info!("Hello, pilots!");
+    tracing::info!("Starting {} v{}", NAME, VERSION);
 
     // Connect to database
     let connect_options = SqliteConnectOptions::from_str("sqlite:data.db")?
@@ -103,14 +103,17 @@ async fn main() -> Result<()> {
 
     // And a MakeService to handle each HTTP connection
     let pool_clone = pool.clone();
+    let config_clone = config.clone();
     let make_service = make_service_fn(move |_conn| {
         let api = api.clone();
         let pool = pool_clone.clone();
+        let config = config_clone.clone();
         async move {
             Ok::<_, Infallible>(service_fn(move |req| {
                 let api = api.clone();
                 let pool = pool.clone();
-                async move { server::handle_http_request(req, api, pool).await }
+                let config = config.clone();
+                async move { server::handle_http_request(req, api, pool, config).await }
             }))
         }
     });

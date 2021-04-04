@@ -17,6 +17,8 @@ pub struct ThreemaConfig {
     pub gateway_secret: String,
     /// The hex-encoded private key
     pub private_key: String,
+    /// Identity of the admin
+    pub admin_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
