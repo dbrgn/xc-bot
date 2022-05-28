@@ -148,7 +148,7 @@ pub async fn handle_threema_request(
                 )
                 .unwrap();
             }
-            let caps = match RE.captures(&text) {
+            let caps = match RE.captures(text) {
                 Some(caps) => caps,
                 None => {
                     tracing::error!("Regex did not match incoming text {:?}", &text);

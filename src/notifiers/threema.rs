@@ -41,7 +41,7 @@ impl ThreemaNotifier {
         tracing::debug!("notify");
 
         // Fetch public key of recipient
-        let public_key = threema::get_public_key(&user, &self.api, &self.pool).await?;
+        let public_key = threema::get_public_key(user, &self.api, &self.pool).await?;
         let recipient_key: RecipientKey = public_key.into();
 
         // Notification text
