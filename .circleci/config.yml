@@ -112,7 +112,6 @@ workflows:
             - test
             - clippy
             - fmt
-            - audit
           filters:
             branches:
               only:
@@ -138,4 +137,3 @@ workflows:
             - test
             - clippy
             - fmt
-            - audit
