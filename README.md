@@ -51,6 +51,9 @@ Important paths:
 
 You'll probably want to mount both files into the container.
 
+Note: This container runs as default user by default. If you use podman, you
+can run the container as non-root.
+
 ## License
 
 Licensed under the AGPL version 3 or later. See `LICENSE.md` file.
