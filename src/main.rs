@@ -127,8 +127,16 @@ async fn main() -> Result<()> {
         }
     });
 
-    // Main loop, run every minute
-    let interval_duration = Duration::from_secs(60);
+    // Main loop, run at specified interval
+    let interval_seconds = std::cmp::max(
+        60,
+        config
+            .xcontest
+            .as_ref()
+            .and_then(|xc| xc.interval_seconds)
+            .unwrap_or(180),
+    );
+    let interval_duration = Duration::from_secs(interval_seconds);
     let mut interval = tokio::time::interval(interval_duration);
     tracing::info!(
         "Starting XContest fetch loop with {:?} interval",

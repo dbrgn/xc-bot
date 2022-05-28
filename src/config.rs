@@ -5,6 +5,7 @@ use serde_derive::Deserialize;
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub threema: ThreemaConfig,
+    pub xcontest: Option<XcontestConfig>,
     pub server: ServerConfig,
     pub logging: Option<LoggingConfig>,
 }
@@ -19,6 +20,12 @@ pub struct ThreemaConfig {
     pub private_key: String,
     /// Identity of the admin
     pub admin_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct XcontestConfig {
+    /// The query interval in seconds (default: 180)
+    pub interval_seconds: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
