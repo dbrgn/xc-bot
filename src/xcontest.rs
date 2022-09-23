@@ -116,12 +116,12 @@ impl XContest {
                 .decode()
                 .context("Could not decode thumbnail bytes")?
                 .resize(512, 512, FilterType::CatmullRom);
-        let mut thumbnail_resized_bytes: Vec<u8> = Vec::new();
+        let mut thumbnail_resized_bytes: Cursor<Vec<u8>> = Cursor::new(Vec::new());
         thumbnail_resized.write_to(&mut thumbnail_resized_bytes, ImageOutputFormat::Jpeg(80))?;
 
         Ok(FlightDetails {
             thumbnail_large: thumbnail_bytes,
-            thumbnail_small: Bytes::from(thumbnail_resized_bytes),
+            thumbnail_small: Bytes::from(thumbnail_resized_bytes.into_inner()),
         })
     }
 }
