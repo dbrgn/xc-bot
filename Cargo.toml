@@ -17,7 +17,7 @@ reqwest = { version = "0.11", features = ["rustls-tls-native-roots"], default-fe
 rss = "2"
 serde = "1"
 serde_derive = "1"
-sqlx = { version = "0.5", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
+sqlx = { version = "0.6", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
 threema-gateway = "0.15"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"], default-features = false }
 toml = "0.5"
