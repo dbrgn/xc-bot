@@ -13,7 +13,7 @@ pub struct XContest {
     client: Client,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Flight {
     /// Flight title
     pub title: String,

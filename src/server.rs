@@ -128,7 +128,7 @@ pub async fn handle_threema_request(
     }
 
     // Handle depending on type
-    match data.get(0) {
+    match data.first() {
         Some(0x01) => {
             // Text message, UTF-8
             let text = match std::str::from_utf8(&data[1..]) {
