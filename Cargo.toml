@@ -23,4 +23,4 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"], defau
 toml = "0.5"
 tracing = "0.1"
 tracing-log = "0.1"
-tracing-subscriber = "0.2"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
