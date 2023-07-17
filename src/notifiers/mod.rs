@@ -42,7 +42,7 @@ impl Notifier {
             "#,
         )
         .bind(&flight.pilot_username)
-        .fetch(&mut conn);
+        .fetch(&mut *conn);
 
         while let Some(subscriber) = subscribers.try_next().await? {
             tracing::info!(

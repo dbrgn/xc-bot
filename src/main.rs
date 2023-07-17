@@ -179,7 +179,7 @@ async fn update(
         .bind(&flight.url)
         .bind(&flight.title)
         .bind(&flight.pilot_username)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
 
         // If inserting fails with a unique constraint, that means that the
