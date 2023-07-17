@@ -55,7 +55,7 @@ pub async fn get_or_create_user(
     )
     .bind(username)
     .bind(usertype)
-    .execute(&mut transaction)
+    .execute(&mut *transaction)
     .await
     .context(format!("Could not create user {}/{}", usertype, username))?;
 
@@ -63,7 +63,7 @@ pub async fn get_or_create_user(
     let user: User = sqlx::query_as("SELECT id, username, usertype, threema_public_key FROM users WHERE username = ? AND usertype = ?")
         .bind(username)
         .bind(usertype)
-        .fetch_one(&mut transaction)
+        .fetch_one(&mut *transaction)
         .await
         .context(format!("Could not fetch user {}/{}", usertype, username))?;
 
@@ -87,7 +87,7 @@ pub async fn get_subscriptions(pool: &Pool<Sqlite>, user_id: i32) -> Result<Vec<
     let subscriptions =
         sqlx::query_scalar("SELECT pilot_username FROM subscriptions WHERE user_id = ? ORDER BY pilot_username COLLATE NOCASE ASC")
             .bind(user_id)
-            .fetch_all(&mut conn)
+            .fetch_all(&mut *conn)
             .await
             .context("Could not fetch subscriptions")?;
 
@@ -106,7 +106,7 @@ pub async fn add_subscription(pool: &Pool<Sqlite>, user_id: i32, pilot: &str) ->
     sqlx::query("INSERT OR IGNORE INTO subscriptions (user_id, pilot_username) VALUES (?, ?)")
         .bind(user_id)
         .bind(pilot)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .context("Could not add subscription")?;
 
@@ -124,13 +124,13 @@ pub async fn remove_subscription(pool: &Pool<Sqlite>, user_id: i32, pilot: &str)
     sqlx::query("DELETE FROM subscriptions WHERE user_id = ? AND pilot_username = ?")
         .bind(user_id)
         .bind(pilot)
-        .execute(&mut transaction)
+        .execute(&mut *transaction)
         .await
         .context("Could not remove subscription")?;
 
     // Get number of modified rows
     let deleted: bool = sqlx::query_scalar("SELECT changes() > 0")
-        .fetch_one(&mut transaction)
+        .fetch_one(&mut *transaction)
         .await
         .context("Could not query number of deleted rows")?;
 
@@ -159,7 +159,7 @@ pub async fn cache_public_key(
     sqlx::query("UPDATE users SET threema_public_key = ? WHERE id = ?")
         .bind(public_key.as_ref())
         .bind(user_id)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .context("Could not cache public key")?;
 
@@ -183,7 +183,7 @@ pub async fn get_stats(pool: &Pool<Sqlite>) -> Result<Stats> {
             (SELECT count(*) FROM xcontest_flights) as flight_count;
         "#,
     )
-    .fetch_one(&mut conn)
+    .fetch_one(&mut *conn)
     .await
     .context("Could not fetch stats")
 }
