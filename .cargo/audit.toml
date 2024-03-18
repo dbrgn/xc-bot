@@ -1,0 +1,4 @@
+[advisories]
+ignore = [
+    "RUSTSEC-2023-0071", # rsa (Potential key recovery though timing): Only used through sqlx-mysql (not used by our code)
+]
