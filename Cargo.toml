@@ -20,7 +20,7 @@ serde_derive = "1"
 sqlx = { version = "0.7", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
 threema-gateway = "0.15"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"], default-features = false }
-toml = "0.7"
+toml = "0.8"
 tracing = "0.1"
 tracing-log = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
