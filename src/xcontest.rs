@@ -2,7 +2,9 @@ use std::io::Cursor;
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
-use image::{imageops::FilterType, io::Reader as ImageReader, ImageFormat, ImageOutputFormat};
+use image::{
+    codecs::jpeg::JpegEncoder, imageops::FilterType, io::Reader as ImageReader, ImageFormat,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Client;
@@ -117,7 +119,8 @@ impl XContest {
                 .context("Could not decode thumbnail bytes")?
                 .resize(512, 512, FilterType::CatmullRom);
         let mut thumbnail_resized_bytes: Cursor<Vec<u8>> = Cursor::new(Vec::new());
-        thumbnail_resized.write_to(&mut thumbnail_resized_bytes, ImageOutputFormat::Jpeg(80))?;
+        let encoder = JpegEncoder::new_with_quality(&mut thumbnail_resized_bytes, 80);
+        thumbnail_resized.write_with_encoder(encoder)?;
 
         Ok(FlightDetails {
             thumbnail_large: thumbnail_bytes,
