@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use sqlx::{Pool, Sqlite};
 use threema_gateway::{
-    encrypt_file_data, ApiBuilder, E2eApi, FileData, FileMessage, RecipientKey, RenderingType,
+    encrypt_file_data, ApiBuilder, E2eApi, FileData, FileMessage, RenderingType,
 };
 
 use crate::{
@@ -42,7 +42,6 @@ impl ThreemaNotifier {
 
         // Fetch public key of recipient
         let public_key = threema::get_public_key(user, &self.api, &self.pool).await?;
-        let recipient_key: RecipientKey = public_key.into();
 
         // Notification text
         let text = format!("{}\n{}", flight.title, flight.url);
@@ -53,7 +52,8 @@ impl ThreemaNotifier {
             let (encrypted_file_data, key) = encrypt_file_data(&FileData {
                 file: details.thumbnail_large.to_vec(),
                 thumbnail: Some(details.thumbnail_small.to_vec()),
-            });
+            })
+            .context("Failed to encrypt file data")?;
 
             // Upload image data
             let file_blob_id = self
@@ -86,13 +86,19 @@ impl ThreemaNotifier {
             .animated(false)
             .build()
             .context("Could not create file message")?;
-            let encrypted = self.api.encrypt_file_msg(&msg, &public_key.into());
+            let encrypted = self
+                .api
+                .encrypt_file_msg(&msg, &public_key)
+                .context("Failed to encrypt file message")?;
 
             // Send
             self.api.send(&user.username, &encrypted, false).await?
         } else {
             // Encrypt simple notification text message
-            let encrypted = self.api.encrypt_text_msg(&text, &recipient_key);
+            let encrypted = self
+                .api
+                .encrypt_text_msg(&text, &public_key)
+                .context("Failed to encrypt text message")?;
 
             // Send
             self.api.send(&user.username, &encrypted, false).await?
