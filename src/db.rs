@@ -2,14 +2,14 @@
 
 use anyhow::{Context, Result};
 use sqlx::{sqlite::SqliteRow, FromRow, Pool, Row, Sqlite};
-use threema_gateway::PublicKey;
+use threema_gateway::RecipientKey;
 
 #[derive(Debug)]
 pub struct User {
     pub id: i32,
     pub username: String,
     pub usertype: String,
-    pub threema_public_key: Option<PublicKey>,
+    pub threema_public_key: Option<RecipientKey>,
 }
 
 impl FromRow<'_, SqliteRow> for User {
@@ -20,7 +20,7 @@ impl FromRow<'_, SqliteRow> for User {
             usertype: row.try_get("usertype")?,
             threema_public_key: row
                 .try_get::<Option<Vec<u8>>, _>("threema_public_key")?
-                .and_then(|bytes: Vec<u8>| PublicKey::from_slice(&bytes)),
+                .and_then(|bytes: Vec<u8>| RecipientKey::from_bytes(&bytes).ok()),
         })
     }
 }
@@ -147,7 +147,7 @@ pub async fn remove_subscription(pool: &Pool<Sqlite>, user_id: i32, pilot: &str)
 pub async fn cache_public_key(
     pool: &Pool<Sqlite>,
     user_id: i32,
-    public_key: &PublicKey,
+    public_key: &RecipientKey,
 ) -> Result<()> {
     // Get connection
     let mut conn = pool
@@ -157,7 +157,7 @@ pub async fn cache_public_key(
 
     // Update cached public key
     sqlx::query("UPDATE users SET threema_public_key = ? WHERE id = ?")
-        .bind(public_key.as_ref())
+        .bind(public_key.as_bytes())
         .bind(user_id)
         .execute(&mut *conn)
         .await

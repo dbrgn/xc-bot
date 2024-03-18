@@ -119,10 +119,12 @@ pub async fn handle_threema_request(
     /// Macro: Reply to sender
     macro_rules! reply {
         ($msg:expr) => {{
-            let reply = api.encrypt_text_msg($msg, &public_key.into());
-            match api.send(&msg.from, &reply, false).await {
-                Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
-                Err(e) => tracing::error!("Could not send reply: {}", e),
+            match api.encrypt_text_msg($msg, &public_key.into()) {
+                Ok(reply) => match api.send(&msg.from, &reply, false).await {
+                    Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
+                    Err(e) => tracing::error!("Could not send reply: {}", e),
+                },
+                Err(e) => tracing::error!("Could not encrypt reply: {}", e),
             }
         }};
     }
