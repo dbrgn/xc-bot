@@ -1,12 +1,12 @@
 //! Threema gateway notification channel.
 
-use std::{convert::TryInto, str::FromStr};
+use std::convert::TryInto;
 
 use anyhow::{Context, Result};
 use reqwest::Client;
 use sqlx::{Pool, Sqlite};
 use threema_gateway::{
-    encrypt_file_data, ApiBuilder, E2eApi, FileMessage, Mime, RecipientKey, RenderingType,
+    encrypt_file_data, ApiBuilder, E2eApi, FileData, FileMessage, RecipientKey, RenderingType,
 };
 
 use crate::{
@@ -50,19 +50,25 @@ impl ThreemaNotifier {
         // Depending on whether or not we have details, we'll send a text or image message.
         let msg_id = if let Some(details) = details {
             // Encrypt file message contents
-            let (file_data, thumb_data, key) =
-                encrypt_file_data(&details.thumbnail_large, Some(&details.thumbnail_small));
-            let thumb_data = thumb_data.unwrap();
+            let (encrypted_file_data, key) = encrypt_file_data(&FileData {
+                file: details.thumbnail_large.to_vec(),
+                thumbnail: Some(details.thumbnail_small.to_vec()),
+            });
 
             // Upload image data
             let file_blob_id = self
                 .api
-                .blob_upload_raw(&file_data, false)
+                .blob_upload_raw(&encrypted_file_data.file, false)
                 .await
                 .context("Could not upload file blob")?;
             let thumb_blob_id = self
                 .api
-                .blob_upload_raw(&thumb_data, false)
+                .blob_upload_raw(
+                    &encrypted_file_data
+                        .thumbnail
+                        .expect("No encrypted thumbnail data"),
+                    false,
+                )
                 .await
                 .context("Could not upload thumbnail blob")?;
 
@@ -70,10 +76,10 @@ impl ThreemaNotifier {
             let msg = FileMessage::builder(
                 file_blob_id,
                 key,
-                Mime::from_str("image/png").unwrap(),
-                file_data.len().try_into().unwrap(),
+                "image/png",
+                encrypted_file_data.file.len().try_into().unwrap(),
             )
-            .thumbnail(thumb_blob_id, Mime::from_str("image/jpeg").unwrap())
+            .thumbnail(thumb_blob_id, "image/jpeg")
             .description(text)
             .file_name("preview.png")
             .rendering_type(RenderingType::Media)

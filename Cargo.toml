@@ -18,7 +18,7 @@ rss = "2"
 serde = "1"
 serde_derive = "1"
 sqlx = { version = "0.7", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
-threema-gateway = "0.15"
+threema-gateway = "0.16"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"], default-features = false }
 toml = "0.8"
 tracing = "0.1"
