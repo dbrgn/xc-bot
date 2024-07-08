@@ -11,6 +11,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use sqlx::{Pool, Sqlite};
 use threema_gateway::E2eApi;
+use tower_http::trace::TraceLayer;
 
 use crate::{config::Config, db, threema};
 
@@ -262,7 +263,8 @@ pub async fn serve(state: SharedState, listen_addr: SocketAddr) {
     // Set up routing and shared state
     let app = axum::Router::new()
         .route("/receive/threema/", post(handle_threema_request))
-        .with_state(Arc::new(state));
+        .with_state(Arc::new(state))
+        .layer(TraceLayer::new_for_http());
 
     // Then bind and serve...
     let listener = tokio::net::TcpListener::bind(listen_addr).await.unwrap();
