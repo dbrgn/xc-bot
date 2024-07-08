@@ -7,9 +7,9 @@ license = "AGPL-3.0"
 
 [dependencies]
 anyhow = "1"
+axum = "0.7"
 bytes = "1"
 futures = "0.3"
-hyper = { version = "0.14", features = ["server"] }
 image = { version = "0.25", features = ["jpeg", "png"], default-features = false }
 lazy_static = "1.4"
 regex = "1.4"

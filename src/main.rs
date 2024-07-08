@@ -1,10 +1,6 @@
-use std::{convert::Infallible, net::SocketAddr, process, str::FromStr, time::Duration};
+use std::{net::SocketAddr, process, str::FromStr, time::Duration};
 
 use anyhow::{Context, Result};
-use hyper::{
-    service::{make_service_fn, service_fn},
-    Server,
-};
 use reqwest::Client;
 use sqlx::{
     sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
@@ -101,31 +97,16 @@ async fn main() -> Result<()> {
         .parse()
         .context("Could not parse HTTP server listening address")?;
 
-    // And a MakeService to handle each HTTP connection
-    let pool_clone = pool.clone();
-    let config_clone = config.clone();
-    let make_service = make_service_fn(move |_conn| {
-        let api = api.clone();
-        let pool = pool_clone.clone();
-        let config = config_clone.clone();
-        async move {
-            Ok::<_, Infallible>(service_fn(move |req| {
-                let api = api.clone();
-                let pool = pool.clone();
-                let config = config.clone();
-                async move { server::handle_http_request(req, api, pool, config).await }
-            }))
-        }
-    });
-
-    // Then bind and serve...
-    let server = Server::bind(&addr).serve(make_service);
-    tokio::spawn(async move {
-        tracing::info!("Starting HTTP server on {}", addr);
-        if let Err(e) = server.await {
-            tracing::error!("Server error: {}", e);
-        }
-    });
+    // Start HTTP server, listening for incoming messages
+    server::serve(
+        server::SharedState {
+            api,
+            pool: pool.clone(),
+            config: config.clone(),
+        },
+        addr,
+    )
+    .await;
 
     // Main loop, run at specified interval
     let interval_seconds = std::cmp::max(
