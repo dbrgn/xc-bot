@@ -13,12 +13,12 @@ futures = "0.3"
 image = { version = "0.25", features = ["jpeg", "png"], default-features = false }
 lazy_static = "1.4"
 regex = "1.4"
-reqwest = { version = "0.11", features = ["rustls-tls-native-roots"], default-features = false }
+reqwest = { version = "0.12", features = ["rustls-tls-native-roots"], default-features = false }
 rss = "2"
 serde = "1"
 serde_derive = "1"
 sqlx = { version = "0.7", features = [ "runtime-tokio-rustls", "sqlite", "macros", "migrate" ], default-features = false }
-threema-gateway = "0.17"
+threema-gateway = "0.18"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"], default-features = false }
 toml = "0.8"
 tower-http = { version = "0.5", features = ["trace"] }
