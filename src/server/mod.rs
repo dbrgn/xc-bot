@@ -7,11 +7,12 @@ use axum::{
     routing::post,
 };
 use bytes::Bytes;
-use lazy_static::lazy_static;
-use regex::Regex;
+use command_handlers::HandleResult;
 use sqlx::{Pool, Sqlite};
 use threema_gateway::E2eApi;
 use tower_http::trace::TraceLayer;
+
+mod command_handlers;
 
 use crate::{config::Config, db, threema};
 
@@ -79,19 +80,6 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
     };
     tracing::debug!("Decrypted data: {:?}", data);
 
-    /// Macro: Reply to sender
-    macro_rules! reply {
-        ($msg:expr) => {{
-            match api.encrypt_text_msg($msg, &public_key.into()) {
-                Ok(reply) => match api.send(&msg.from, &reply, false).await {
-                    Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
-                    Err(e) => tracing::error!("Could not send reply: {}", e),
-                },
-                Err(e) => tracing::error!("Could not encrypt reply: {}", e),
-            }
-        }};
-    }
-
     // Handle depending on type
     match data.first() {
         Some(0x01) => {
@@ -104,130 +92,29 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
                 }
             };
 
-            tracing::info!("Incoming request from {}: {:?}", msg.from, text);
-            lazy_static! {
-                static ref RE: Regex = Regex::new(
-                    r"(?x)
-                    (?P<command>[a-zA-Z]*)
-                    \s*(?P<data>.*)"
-                )
-                .unwrap();
-            }
-            let caps = match RE.captures(text) {
-                Some(caps) => caps,
-                None => {
-                    tracing::error!("Regex did not match incoming text {:?}", &text);
-                    return http_500();
+            // Process text message
+            match command_handlers::handle_threema_text_message(
+                &text,
+                &msg.from,
+                msg.nickname.as_deref(),
+                &user,
+                pool,
+                config,
+            )
+            .await
+            {
+                HandleResult::Reply(text) => {
+                    match api.encrypt_text_msg(text.as_ref(), &public_key.into()) {
+                        Ok(reply) => match api.send(&msg.from, &reply, false).await {
+                            Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
+                            Err(e) => tracing::error!("Could not send reply: {}", e),
+                        },
+                        Err(e) => tracing::error!("Could not encrypt reply: {}", e),
+                    }
                 }
+                HandleResult::NoOp => {}
+                HandleResult::ServerError => return http_500(),
             };
-            let command = caps.name("command").unwrap().as_str().to_ascii_lowercase();
-            match &*command {
-                "stats" if Some(&msg.from) == config.threema.admin_id.as_ref() => {
-                    tracing::info!("Received stats request from admin {}", msg.from);
-                    match db::get_stats(pool).await {
-                        Ok(stats) => reply!(&format!(
-                            "Database stats:\n\n- Users: {}\n- Subscriptions: {}\n- Flights: {}",
-                            stats.user_count, stats.subscription_count, stats.flight_count
-                        )),
-                        Err(e) => tracing::error!("Could not fetch stats: {}", e),
-                    }
-                }
-                "folge" | "follow" | "add" => {
-                    let usage = "Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" \
-                        (Beispiel: \"folge chrigel\"). \
-                        Du musst dabei den Benutzernamen von XContest verwenden.";
-                    if let Some(data) = caps.name("data") {
-                        let pilot = data.as_str().trim();
-                        if pilot.is_empty() {
-                            reply!(usage);
-                        } else if pilot.contains(' ') {
-                            reply!(&format!("⚠️ Fehler: Der XContest-Benutzername darf kein Leerzeichen enthalten!\n\n{}", usage));
-                        } else {
-                            match db::add_subscription(pool, user.id, pilot).await {
-                                Ok(_) => reply!(&format!("Du folgst jetzt {}!", pilot)),
-                                Err(e) => {
-                                    tracing::error!("Could not add subscription: {}", e);
-                                    return http_500();
-                                }
-                            }
-                        }
-                    } else {
-                        reply!(usage);
-                    }
-                }
-                "stopp" | "stop" | "remove" => {
-                    let usage = "Um einem Piloten zu entfolgen, sende \"stopp _<benutzername>_\" \
-                        (Beispiel: \"stopp chrigel\"). \
-                        Du musst dabei den Benutzernamen von XContest verwenden.";
-                    if let Some(data) = caps.name("data") {
-                        let pilot = data.as_str().trim();
-                        if pilot.is_empty() {
-                            reply!(usage);
-                        } else {
-                            match db::remove_subscription(pool, user.id, pilot).await {
-                                Ok(true) => {
-                                    reply!(&format!("Du folgst jetzt {} nicht mehr.", pilot))
-                                }
-                                Ok(false) => reply!(&format!("Du folgst {} nicht.", pilot)),
-                                Err(e) => {
-                                    tracing::error!("Could not remove subscription: {}", e);
-                                    return http_500();
-                                }
-                            }
-                        }
-                    } else {
-                        reply!(usage);
-                    }
-                }
-                "liste" | "list" => {
-                    let subscriptions = match db::get_subscriptions(pool, user.id).await {
-                        Ok(subs) => subs,
-                        Err(e) => {
-                            tracing::error!(
-                                "Could not fetch subscriptions for uid {}: {}",
-                                user.id,
-                                e
-                            );
-                            return http_500();
-                        }
-                    };
-                    if subscriptions.is_empty() {
-                        reply!(
-                            "Du folgst noch keinen Piloten.\n\n\
-                            Um einem Piloten zu folgen, sende \"folge _<benutzername>_\" (Beispiel: \"folge chrigel\"). \
-                            Du musst dabei den Benutzernamen von XContest verwenden."
-                        );
-                    } else {
-                        let mut reply = String::from("Du folgst folgenden Piloten:\n");
-                        for pilot in subscriptions {
-                            reply.push_str("\n- ");
-                            reply.push_str(&pilot);
-                        }
-                        reply!(&reply);
-                    }
-                }
-                "github" => reply!(
-                    "Dieser Bot ist Open Source (AGPLv3). \
-                    Den Quellcode findest du hier: https://github.com/dbrgn/xc-bot/"
-                ),
-                "version" => reply!(&format!("xc-bot v{}", crate::VERSION)),
-                other => {
-                    tracing::debug!("Unknown command: {:?}", other);
-                    let nickname: &str = msg.nickname.as_ref().unwrap_or(&msg.from).trim();
-                    reply!(&format!(
-                        "Hallo {}! 👋\n\n\
-                        Mit diesem Bot kannst du Piloten im CCC (XContest Schweiz) folgen. Du kriegst dann eine sofortige Benachrichtigung, wenn diese einen neuen Flug hochladen. 🪂\n\n\
-                        Verfügbare Befehle:\n\n\
-                        - *folge _<benutzername>_*: Werde benachrichtigt, wenn der Pilot _<benutzername>_ einen neuen Flug hochlädt. Du musst dabei den Benutzernamen von XContest verwenden.\n\
-                        - *stopp _<benutzername>_*: Werde nicht mehr benachrichtigt, wenn der Pilot _<benutzername>_ einen neuen Flug hochlädt. Du musst dabei den Benutzernamen von XContest verwenden.\n\
-                        - *liste*: Zeige die Liste der Piloten, deren Flüge du abonniert hast.\n\
-                        - *github*: Zeige den Link zum Quellcode dieses Bots.\n\n\
-                        Bei Fragen, schicke einfach eine Threema-Nachricht an https://threema.id/EBEP4UCA?text= !\
-                        ",
-                        nickname,
-                    ));
-                }
-            }
 
             // Done processing, confirm message
             http_200()
