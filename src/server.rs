@@ -1,24 +1,24 @@
-use std::convert::Infallible;
+use std::{net::SocketAddr, sync::Arc};
 
+use axum::{
+    body::Body,
+    extract::State,
+    http::{Response, StatusCode},
+    routing::post,
+};
 use bytes::Bytes;
-use hyper::{Body, Method, Request, Response, StatusCode};
 use lazy_static::lazy_static;
 use regex::Regex;
 use sqlx::{Pool, Sqlite};
+use threema_gateway::E2eApi;
+use tower_http::trace::TraceLayer;
 
 use crate::{config::Config, db, threema};
 
 fn http_200() -> Response<Body> {
     Response::builder()
         .status(StatusCode::OK)
-        .body(Body::from(""))
-        .unwrap()
-}
-
-fn http_404() -> Response<Body> {
-    Response::builder()
-        .status(StatusCode::NOT_FOUND)
-        .body(Body::empty())
+        .body(Body::from("processed"))
         .unwrap()
 }
 
@@ -29,51 +29,14 @@ fn http_500() -> Response<Body> {
         .unwrap()
 }
 
-/// Handle an incoming HTTP request.
-#[tracing::instrument(skip(req, api, pool, config))]
-pub async fn handle_http_request(
-    req: Request<Body>,
-    api: threema_gateway::E2eApi,
-    pool: Pool<Sqlite>,
-    config: Config,
-) -> Result<Response<Body>, Infallible> {
-    let path = req.uri().path();
-    let method = req.method();
-    match (path, method) {
-        // Threema: Handle POST requests to /receive/threema/
-        ("/receive/threema/", &Method::POST) => {
-            // Read body bytes
-            let body: Bytes = match hyper::body::to_bytes(req.into_body()).await {
-                Ok(b) => b,
-                Err(e) => {
-                    tracing::error!("Could not read body bytes: {}", e);
-                    return Ok(http_500());
-                }
-            };
+/// Handle a Threema message HTTP request
+async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) -> Response<Body> {
+    let api = &state.api;
+    let pool = &state.pool;
+    let config = &state.config;
 
-            // Process message
-            let response = handle_threema_request(body, api, pool, config).await;
-            tracing::info!("Responding with HTTP {}", response.status());
-            Ok(response)
-        }
-
-        // Return 404 for all other requests
-        (p, m) => {
-            // Not found
-            tracing::warn!("Unexpected HTTP {} request to {}", m, p);
-            Ok(http_404())
-        }
-    }
-}
-
-pub async fn handle_threema_request(
-    bytes: Bytes,
-    api: threema_gateway::E2eApi,
-    pool: Pool<Sqlite>,
-    config: Config,
-) -> Response<Body> {
     // Parse body
-    let msg = match api.decode_incoming_message(bytes) {
+    let msg = match state.api.decode_incoming_message(bytes) {
         Ok(data) => data,
         Err(e) => {
             tracing::error!("Could not decode incoming Threema message: {}", e);
@@ -86,7 +49,7 @@ pub async fn handle_threema_request(
     tracing::trace!("Raw message: {:?}", msg);
 
     // Fetch user
-    let user = match db::get_or_create_user(&pool, &msg.from, "threema").await {
+    let user = match db::get_or_create_user(pool, &msg.from, "threema").await {
         Ok(user) => {
             tracing::debug!("User ID: {}", user.id);
             user
@@ -98,7 +61,7 @@ pub async fn handle_threema_request(
     };
 
     // Fetch sender public key
-    let public_key = match threema::get_public_key(&user, &api, &pool).await {
+    let public_key = match threema::get_public_key(&user, api, pool).await {
         Ok(pk) => pk,
         Err(e) => {
             tracing::error!("Could not fetch public key for {}: {}", &msg.from, e);
@@ -161,7 +124,7 @@ pub async fn handle_threema_request(
             match &*command {
                 "stats" if Some(&msg.from) == config.threema.admin_id.as_ref() => {
                     tracing::info!("Received stats request from admin {}", msg.from);
-                    match db::get_stats(&pool).await {
+                    match db::get_stats(pool).await {
                         Ok(stats) => reply!(&format!(
                             "Database stats:\n\n- Users: {}\n- Subscriptions: {}\n- Flights: {}",
                             stats.user_count, stats.subscription_count, stats.flight_count
@@ -180,7 +143,7 @@ pub async fn handle_threema_request(
                         } else if pilot.contains(' ') {
                             reply!(&format!("⚠️ Fehler: Der XContest-Benutzername darf kein Leerzeichen enthalten!\n\n{}", usage));
                         } else {
-                            match db::add_subscription(&pool, user.id, pilot).await {
+                            match db::add_subscription(pool, user.id, pilot).await {
                                 Ok(_) => reply!(&format!("Du folgst jetzt {}!", pilot)),
                                 Err(e) => {
                                     tracing::error!("Could not add subscription: {}", e);
@@ -201,7 +164,7 @@ pub async fn handle_threema_request(
                         if pilot.is_empty() {
                             reply!(usage);
                         } else {
-                            match db::remove_subscription(&pool, user.id, pilot).await {
+                            match db::remove_subscription(pool, user.id, pilot).await {
                                 Ok(true) => {
                                     reply!(&format!("Du folgst jetzt {} nicht mehr.", pilot))
                                 }
@@ -217,7 +180,7 @@ pub async fn handle_threema_request(
                     }
                 }
                 "liste" | "list" => {
-                    let subscriptions = match db::get_subscriptions(&pool, user.id).await {
+                    let subscriptions = match db::get_subscriptions(pool, user.id).await {
                         Ok(subs) => subs,
                         Err(e) => {
                             tracing::error!(
@@ -285,4 +248,30 @@ pub async fn handle_threema_request(
             http_500()
         }
     }
+}
+
+pub struct SharedState {
+    pub api: E2eApi,
+    pub pool: Pool<Sqlite>,
+    pub config: Config,
+}
+
+/// Bind to `listen_addr` and serve forever.
+///
+/// The async call will return once the server task has been spawned.
+pub async fn serve(state: SharedState, listen_addr: SocketAddr) {
+    // Set up routing and shared state
+    let app = axum::Router::new()
+        .route("/receive/threema/", post(handle_threema_request))
+        .with_state(Arc::new(state))
+        .layer(TraceLayer::new_for_http());
+
+    // Then bind and serve...
+    let listener = tokio::net::TcpListener::bind(listen_addr).await.unwrap();
+    tokio::spawn(async move {
+        tracing::info!("Starting HTTP server on {}", listen_addr);
+        if let Err(e) = axum::serve(listener, app).await {
+            tracing::error!("Server error: {}", e);
+        }
+    });
 }
