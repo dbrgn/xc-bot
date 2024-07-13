@@ -97,9 +97,9 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
                 &text,
                 &msg.from,
                 msg.nickname.as_deref(),
+                config.threema.admin_id.as_deref(),
                 &user,
                 pool,
-                config,
             )
             .await
             {

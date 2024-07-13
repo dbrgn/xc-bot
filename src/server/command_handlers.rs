@@ -4,10 +4,7 @@ use lazy_static::lazy_static;
 use regex::{Match, Regex};
 use sqlx::{Pool, Sqlite};
 
-use crate::{
-    config::Config,
-    db::{self, User},
-};
+use crate::db::{self, User};
 
 pub enum HandleResult {
     /// Send a reply containing the enclosed text to the sender of the command
@@ -23,9 +20,9 @@ pub async fn handle_threema_text_message(
     text: &str,
     sender_identity: &str,
     sender_nickname: Option<&str>,
+    admin_identity: Option<&str>,
     user: &User,
     pool: &Pool<Sqlite>,
-    config: &Config,
 ) -> HandleResult {
     // Parse command and data
     tracing::info!("Incoming request from {}: {:?}", sender_identity, text);
@@ -48,7 +45,7 @@ pub async fn handle_threema_text_message(
 
     // Process command
     match &*command {
-        "stats" if Some(sender_identity) == config.threema.admin_id.as_deref() => {
+        "stats" if Some(sender_identity) == admin_identity => {
             handle_admin_stats(sender_identity, &pool).await
         }
         "folge" | "follow" | "add" => handle_follow(caps.name("data"), &user, &pool).await,
@@ -209,4 +206,134 @@ async fn handle_unknown_command(
         ",
         nickname_or_identity,
     ).into())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::str::FromStr;
+
+    use sqlx::{
+        sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions},
+        Pool, Sqlite,
+    };
+
+    use crate::db::{self, User};
+
+    use super::{handle_threema_text_message, HandleResult};
+
+    /// Create an SQLite test database (with applied migrations)
+    async fn _sqlite_test_db() -> Pool<Sqlite> {
+        // Create in-memory test DB
+        let connect_options = SqliteConnectOptions::from_str(":memory:")
+            .unwrap()
+            .create_if_missing(true)
+            .journal_mode(SqliteJournalMode::Wal)
+            .foreign_keys(true);
+        let pool = SqlitePoolOptions::new()
+            .min_connections(2)
+            .max_connections(5)
+            .connect_with(connect_options)
+            .await
+            .unwrap();
+
+        // Run migrations
+        sqlx::migrate!("./migrations")
+            .run(&pool)
+            .await
+            .expect("Test migrations failed");
+
+        pool
+    }
+
+    #[derive(Default)]
+    struct TextMessageTestProcessor {
+        text: String,
+        sender_identity: String,
+        sender_nickname: Option<String>,
+        admin_identity: Option<String>,
+        pool: Option<Pool<Sqlite>>,
+        user: Option<User>,
+    }
+
+    impl TextMessageTestProcessor {
+        fn new(text: impl Into<String>) -> Self {
+            Self {
+                text: text.into(),
+                sender_identity: "SENDERRR".into(),
+                ..Default::default()
+            }
+        }
+
+        fn with_sender(mut self, identity: &str, nickname: Option<&str>) -> Self {
+            self.sender_identity = identity.into();
+            self.sender_nickname = nickname.map(ToOwned::to_owned);
+            self
+        }
+
+        async fn process(self) -> TextMessageTestProcessorResult {
+            let pool = match self.pool {
+                Some(pool) => pool,
+                None => _sqlite_test_db().await,
+            };
+
+            let user = match self.user {
+                Some(user) => user,
+                None => db::get_or_create_user(&pool, "testuser", "threema")
+                    .await
+                    .unwrap(),
+            };
+
+            TextMessageTestProcessorResult {
+                result: handle_threema_text_message(
+                    &self.text,
+                    &self.sender_identity,
+                    self.sender_nickname.as_deref(),
+                    self.admin_identity.as_deref(),
+                    &user,
+                    &pool,
+                )
+                .await,
+            }
+        }
+    }
+
+    struct TextMessageTestProcessorResult {
+        result: HandleResult,
+    }
+
+    impl TextMessageTestProcessorResult {
+        fn assert_reply_contains_text(self, expected_text: &str) -> Self {
+            match &self.result {
+                HandleResult::NoOp => panic!("Unexpected HandleResult::NoOp"),
+                HandleResult::ServerError => panic!("Unexpected HandleResult::ServerError"),
+                HandleResult::Reply(text) => assert!(
+                    text.contains(expected_text),
+                    "Reply text does not contain expected text {:?}: {:?}",
+                    expected_text,
+                    text
+                ),
+            }
+            self
+        }
+    }
+
+    #[tokio::test]
+    async fn test_unknown_command_with_nickname() {
+        TextMessageTestProcessor::new("hello")
+            .with_sender("TESTTEST", Some("TestUser"))
+            .process()
+            .await
+            .assert_reply_contains_text("Hallo TestUser!")
+            .assert_reply_contains_text("Verfügbare Befehle:");
+    }
+
+    #[tokio::test]
+    async fn test_unknown_command_without_nickname() {
+        TextMessageTestProcessor::new("hello")
+            .with_sender("TESTTEST", None)
+            .process()
+            .await
+            .assert_reply_contains_text("Hallo TESTTEST!")
+            .assert_reply_contains_text("Verfügbare Befehle:");
+    }
 }
