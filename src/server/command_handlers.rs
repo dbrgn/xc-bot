@@ -270,6 +270,16 @@ mod tests {
             self
         }
 
+        fn with_pool(mut self, pool: Pool<Sqlite>) -> Self {
+            self.pool = Some(pool);
+            self
+        }
+
+        fn with_user(mut self, user: User) -> Self {
+            self.user = Some(user);
+            self
+        }
+
         async fn process(self) -> TextMessageTestProcessorResult {
             let pool = match self.pool {
                 Some(pool) => pool,
@@ -293,12 +303,16 @@ mod tests {
                     &pool,
                 )
                 .await,
+                pool,
+                user,
             }
         }
     }
 
     struct TextMessageTestProcessorResult {
         result: HandleResult,
+        pool: Pool<Sqlite>,
+        user: User,
     }
 
     impl TextMessageTestProcessorResult {
@@ -313,6 +327,14 @@ mod tests {
                     text
                 ),
             }
+            self
+        }
+
+        async fn assert_subscriptions(self, expected_subscriptions: Vec<&'static str>) -> Self {
+            let subscriptions = db::get_subscriptions(&self.pool, self.user.id)
+                .await
+                .unwrap();
+            assert_eq!(subscriptions, expected_subscriptions);
             self
         }
     }
@@ -335,5 +357,129 @@ mod tests {
             .await
             .assert_reply_contains_text("Hallo TESTTEST!")
             .assert_reply_contains_text("Verfügbare Befehle:");
+    }
+
+    #[tokio::test]
+    async fn test_version() {
+        TextMessageTestProcessor::new("version")
+            .process()
+            .await
+            .assert_reply_contains_text("xc-bot v");
+    }
+
+    #[tokio::test]
+    async fn test_github() {
+        TextMessageTestProcessor::new("github")
+            .process()
+            .await
+            .assert_reply_contains_text("AGPLv3")
+            .assert_reply_contains_text("https://github.com/dbrgn/xc-bot/");
+    }
+
+    #[tokio::test]
+    async fn test_subscriptions() {
+        let pool = _sqlite_test_db().await;
+        let user = db::get_or_create_user(&pool, "testuser", "threema")
+            .await
+            .unwrap();
+
+        // Initially, no subscriptions
+        let subscriptions = db::get_subscriptions(&pool, user.id).await.unwrap();
+        assert_eq!(subscriptions.len(), 0);
+
+        // Add subscription
+        TextMessageTestProcessor::new("folge dbrgn")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst jetzt dbrgn!")
+            .assert_subscriptions(vec!["dbrgn"])
+            .await;
+
+        // Add second subscription
+        TextMessageTestProcessor::new("folge dbrgn2")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst jetzt dbrgn2!")
+            .assert_subscriptions(vec!["dbrgn", "dbrgn2"])
+            .await;
+
+        // Ignore duplicate subscription
+        TextMessageTestProcessor::new("folge dbrgn")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst jetzt dbrgn!")
+            .assert_subscriptions(vec!["dbrgn", "dbrgn2"])
+            .await;
+
+        // Unsubscribe
+        TextMessageTestProcessor::new("stopp dbrgn")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst jetzt dbrgn nicht mehr.")
+            .assert_subscriptions(vec!["dbrgn2"])
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_unsubscribe_unknown_user() {
+        // Ignore unsubscriptions for non-subscribed users
+        TextMessageTestProcessor::new("stopp asfgasdg")
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst asfgasdg nicht.")
+            .assert_subscriptions(vec![])
+            .await;
+    }
+
+    #[tokio::test]
+    async fn test_list() {
+        let pool = _sqlite_test_db().await;
+        let user = db::get_or_create_user(&pool, "testuser", "threema")
+            .await
+            .unwrap();
+
+        // Initially, empty list
+        TextMessageTestProcessor::new("liste")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst noch keinen Piloten.")
+            .assert_reply_contains_text("Um einem Piloten zu folgen, sende");
+
+        TextMessageTestProcessor::new("folge dbrgn1")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await;
+        TextMessageTestProcessor::new("folge dbrgn2")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await;
+        TextMessageTestProcessor::new("folge dbrgn3")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await;
+
+        // Initially, empty list
+        TextMessageTestProcessor::new("liste")
+            .with_pool(pool.clone())
+            .with_user(user.clone())
+            .process()
+            .await
+            .assert_reply_contains_text("Du folgst folgenden Piloten:")
+            .assert_reply_contains_text("- dbrgn1")
+            .assert_reply_contains_text("- dbrgn2")
+            .assert_reply_contains_text("- dbrgn3");
     }
 }
