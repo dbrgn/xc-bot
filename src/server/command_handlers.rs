@@ -46,11 +46,11 @@ pub async fn handle_threema_text_message(
     // Process command
     match &*command {
         "stats" if Some(sender_identity) == admin_identity => {
-            handle_admin_stats(sender_identity, &pool).await
+            handle_admin_stats(sender_identity, pool).await
         }
-        "folge" | "follow" | "add" => handle_follow(caps.name("data"), &user, &pool).await,
-        "stopp" | "stop" | "remove" => handle_unfollow(caps.name("data"), &user, &pool).await,
-        "liste" | "list" => handle_list(&user, &pool).await,
+        "folge" | "follow" | "add" => handle_follow(caps.name("data"), user, pool).await,
+        "stopp" | "stop" | "remove" => handle_unfollow(caps.name("data"), user, pool).await,
+        "liste" | "list" => handle_list(user, pool).await,
         "github" => handle_github().await,
         "version" => handle_version().await,
         other => handle_unknown_command(other, sender_identity, sender_nickname).await,

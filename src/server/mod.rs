@@ -94,7 +94,7 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
 
             // Process text message
             match command_handlers::handle_threema_text_message(
-                &text,
+                text,
                 &msg.from,
                 msg.nickname.as_deref(),
                 config.threema.admin_id.as_deref(),
@@ -104,7 +104,7 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
             .await
             {
                 HandleResult::Reply(text) => {
-                    match api.encrypt_text_msg(text.as_ref(), &public_key.into()) {
+                    match api.encrypt_text_msg(text.as_ref(), &public_key) {
                         Ok(reply) => match api.send(&msg.from, &reply, false).await {
                             Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
                             Err(e) => tracing::error!("Could not send reply: {}", e),
