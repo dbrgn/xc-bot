@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use sqlx::{sqlite::SqliteRow, FromRow, Pool, Row, Sqlite};
 use threema_gateway::RecipientKey;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct User {
     pub id: i32,
     pub username: String,
