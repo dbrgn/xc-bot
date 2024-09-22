@@ -2,9 +2,7 @@ use std::io::Cursor;
 
 use anyhow::{Context, Result};
 use bytes::Bytes;
-use image::{
-    codecs::jpeg::JpegEncoder, imageops::FilterType, io::Reader as ImageReader, ImageFormat,
-};
+use image::{codecs::jpeg::JpegEncoder, imageops::FilterType, ImageFormat, ImageReader};
 use lazy_static::lazy_static;
 use regex::Regex;
 use reqwest::Client;
