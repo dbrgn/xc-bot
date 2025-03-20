@@ -191,7 +191,7 @@ async fn update(
         let details = match xc.fetch_flight_details(&flight).await {
             Ok(details) => Some(details),
             Err(e) => {
-                tracing::warn!("Could not fetch flight details: {}", e);
+                tracing::warn!("Could not fetch flight details: {:#}", e);
                 None
             }
         };
