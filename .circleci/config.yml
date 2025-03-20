@@ -83,7 +83,7 @@ jobs:
       - setup_remote_docker:
           # The supported versions can be found here: 
           # https://circleci.com/docs/2.0/building-docker-images/#docker-version
-          version: 20.10.14
+          version: docker24
       - run: docker build . --no-cache
 
   docker-publish:
@@ -94,7 +94,7 @@ jobs:
       - setup_remote_docker:
           # The supported versions can be found here: 
           # https://circleci.com/docs/2.0/building-docker-images/#docker-version
-          version: 20.10.14
+          version: docker24
       - run: |
           export VERSION=$(grep "^version =" Cargo.toml | sed 's/.*"\([^"]*\)".*/\1/')
           export IMAGE=dbrgn/xc-bot
