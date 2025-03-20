@@ -104,6 +104,7 @@ impl XContest {
             .captures(&html)
             .context("Thumbnail URL not found in flight details HTML")?;
         let thumbnail_url = caps.name("url").unwrap().as_str();
+        tracing::debug!("Thumbnail URL: {}", thumbnail_url);
 
         // Fetch thumbnail
         let thumbnail_resp = self.client.get(thumbnail_url).send().await?;
