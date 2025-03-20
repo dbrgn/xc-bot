@@ -76,12 +76,12 @@ impl ThreemaNotifier {
             let msg = FileMessage::builder(
                 file_blob_id,
                 key,
-                "image/png",
+                "image/jpeg",
                 encrypted_file_data.file.len().try_into().unwrap(),
             )
             .thumbnail(thumb_blob_id, "image/jpeg")
             .description(text)
-            .file_name("preview.png")
+            .file_name("preview.jpg")
             .rendering_type(RenderingType::Media)
             .animated(false)
             .build()

@@ -25,7 +25,7 @@ pub struct Flight {
 
 #[derive(Debug, Clone)]
 pub struct FlightDetails {
-    /// Flight thumbnail (PNG data)
+    /// Flight thumbnail (JPEG data)
     pub thumbnail_large: Bytes,
     /// Flight thumbnail (max 512x512px, JPEG data)
     pub thumbnail_small: Bytes,
@@ -113,7 +113,7 @@ impl XContest {
 
         // Convert thumbnail to JPEG max 512x512
         let thumbnail_resized =
-            ImageReader::with_format(Cursor::new(&thumbnail_bytes), ImageFormat::Png)
+            ImageReader::with_format(Cursor::new(&thumbnail_bytes), ImageFormat::Jpeg)
                 .decode()
                 .context("Could not decode thumbnail bytes")?
                 .resize(512, 512, FilterType::CatmullRom);
