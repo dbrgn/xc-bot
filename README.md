@@ -1,6 +1,6 @@
 # XC Bot
 
-[![CircleCI][circle-ci-badge]][circle-ci]
+[![CI][ci-badge]][ci]
 
 A chat bot that notifies you about new paragliding cross-country flights
 published on [XContest](https://www.xcontest.org/) as part of the Swiss [Cross
@@ -74,5 +74,5 @@ Licensed under the AGPL version 3 or later. See `LICENSE.md` file.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 <!-- Badges -->
-[circle-ci]: https://circleci.com/gh/dbrgn/xc-bot/tree/main
-[circle-ci-badge]: https://circleci.com/gh/dbrgn/xc-bot/tree/main.svg?style=shield
+[ci]: https://github.com/dbrgn/xc-bot/actions/workflows/ci.yml
+[ci-badge]: https://github.com/dbrgn/xc-bot/actions/workflows/ci.yml/badge.svg
