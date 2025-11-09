@@ -42,7 +42,8 @@ processed flights and flight subscriptions.
 
 ## Docker Image
 
-The repository includes a Dockerfile.
+The repository includes a Dockerfile, which is published automatically at
+`ghcr.io/dbrgn/xc-bot`.
 
 Important paths:
 
