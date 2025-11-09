@@ -75,6 +75,25 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: [test, clippy, fmt]
+    if: github.ref != 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: false
+          no-cache: true
+
   docker-publish:
     name: Build and Publish Docker Image
     runs-on: ubuntu-latest
@@ -94,11 +113,12 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to Docker Hub
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -107,5 +127,5 @@ jobs:
           push: true
           no-cache: true
           tags: |
-            dbrgn/xc-bot:${{ steps.version.outputs.branch }}
-            dbrgn/xc-bot:${{ steps.version.outputs.version }}
+            ghcr.io/dbrgn/xc-bot:${{ steps.version.outputs.branch }}
+            ghcr.io/dbrgn/xc-bot:${{ steps.version.outputs.version }}
