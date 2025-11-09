@@ -1,4 +1,4 @@
-FROM rust:1.83 AS builder
+FROM rust:1.91 AS builder
 RUN rustup target add x86_64-unknown-linux-musl
 COPY . /opt/xc-bot/
 RUN apt-get update && apt-get install -y --no-install-recommends musl-tools
