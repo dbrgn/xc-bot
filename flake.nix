@@ -10,10 +10,7 @@
     nixpkgs,
   }: let
     # Supported target systems
-    allSystems = [
-      "x86_64-linux"
-      "aarch64-linux"
-    ];
+    allSystems = ["x86_64-linux"];
 
     # Helper to build a package for all supported systems above
     forAllSystems = f: nixpkgs.lib.genAttrs allSystems (system: f {pkgs = import nixpkgs {inherit system;};});
