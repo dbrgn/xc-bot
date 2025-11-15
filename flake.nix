@@ -17,14 +17,23 @@
 
     mkPackage = pkgs: pkgs.callPackage ./package.nix {};
   in {
+    # NixOS Module
     nixosModules.default = import ./nixos-module.nix self;
 
+    # Package
     overlays.default = final: _prev: {xc-bot = mkPackage final;};
-
     packages = forAllSystems (
       {pkgs}: {
         default = mkPackage pkgs;
       }
     );
+
+    # Tests
+    checks = forAllSystems ({pkgs}: {
+      test-module = pkgs.nixosTest (import ./nixos-tests/test-module.nix {
+        inherit pkgs;
+        modules = [self.nixosModules.default];
+      });
+    });
   };
 }
