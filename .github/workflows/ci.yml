@@ -137,7 +137,7 @@ jobs:
       - uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - run: nix flake check
+      - run: cd nix && nix flake check
 
   nix-build:
     name: Build nix package
@@ -147,4 +147,4 @@ jobs:
       - uses: cachix/install-nix-action@v31
         with:
           github_access_token: ${{ secrets.GITHUB_TOKEN }}
-      - run: nix build
+      - run: cd nix && nix build

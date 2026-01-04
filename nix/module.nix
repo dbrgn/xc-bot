@@ -34,7 +34,7 @@ in {
           adminId = mkOption {
             type = types.nullOr types.str;
             default = null;
-            description = lib.mdDoc "Identity of the admin";
+            description = lib.mdDoc "Threema ID of the admin";
             example = "ADMIN123";
           };
         };
