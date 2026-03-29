@@ -55,11 +55,19 @@ You'll probably want to mount both files into the container.
 Note: This container runs as default user by default. If you use podman, you
 can run the container as non-root.
 
+## Nix Module
+
+This repository also includes a Nix package and NixOS module.
+
+### Build and Evaluate NixOS Module
+
+    cd nix && nix flake check
+
 ## License
 
 Licensed under the AGPL version 3 or later. See `LICENSE.md` file.
 
-    Copyright (C) 2021–2025 Danilo Bargen
+    Copyright (C) 2021–2026 Danilo Bargen
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -75,5 +83,6 @@ Licensed under the AGPL version 3 or later. See `LICENSE.md` file.
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 <!-- Badges -->
+
 [ci]: https://github.com/dbrgn/xc-bot/actions/workflows/ci.yml
 [ci-badge]: https://github.com/dbrgn/xc-bot/actions/workflows/ci.yml/badge.svg

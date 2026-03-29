@@ -128,3 +128,23 @@ jobs:
           tags: |
             ghcr.io/dbrgn/xc-bot:${{ steps.version.outputs.branch }}
             ghcr.io/dbrgn/xc-bot:${{ steps.version.outputs.version }}
+
+  nix-flake-check:
+    name: Check nix flake
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: cd nix && nix flake check
+
+  nix-build:
+    name: Build nix package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+      - run: cd nix && nix build
