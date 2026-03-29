@@ -59,9 +59,7 @@ can run the container as non-root.
 
 This repository also includes a Nix package and NixOS module.
 
-### Build and Evaluate NixOS Module
-
-    cd nix && nix flake check
+See [`nix/README.md`](nix/README.md) for more information.
 
 ## License
 
