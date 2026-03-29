@@ -1,4 +1,4 @@
-self: {
+{
   config,
   pkgs,
   lib,
@@ -108,8 +108,6 @@ in {
       }
     ];
 
-    nixpkgs.overlays = [self.overlays.default];
-
     # Generate the TOML config file with placeholders for secrets
     systemd.services.xc-bot = let
       # Build the config structure
@@ -138,9 +136,8 @@ in {
       };
 
       # Generate TOML config file
-      configFile = pkgs.writeText "xc-bot-config.toml" (
-        generators.toTOML {} configData
-      );
+      tomlFormat = pkgs.formats.toml {};
+      configFile = tomlFormat.generate "xc-bot-config.toml" configData;
 
       # Create a script that substitutes secrets and runs xc-bot
       startScript = pkgs.writeShellScript "xc-bot-start" ''

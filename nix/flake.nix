@@ -35,6 +35,11 @@
                   # Minimal config to evaluate the module
                   services.xc-bot = {
                     enable = true;
+                    threema = {
+                      gatewayId = "*TESTID";
+                      gatewaySecretFile = "/run/secrets/gateway-secret";
+                      privateKeyFile = "/run/secrets/private-key";
+                    };
                   };
 
                   # Required stub options for evaluation
