@@ -9,7 +9,7 @@ use axum::{
 use bytes::Bytes;
 use command_handlers::HandleResult;
 use sqlx::{Pool, Sqlite};
-use threema_gateway::E2eApi;
+use threema_gateway::{errors::CryptoOrMessageDecodeError, E2eApi, E2eMessage};
 use tower_http::trace::TraceLayer;
 
 mod command_handlers;
@@ -44,13 +44,14 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
             return http_500();
         }
     };
-    let span = tracing::debug_span!("incoming_message", from = &*msg.from, id = &*msg.message_id);
+    let span =
+        tracing::debug_span!("incoming_message", from = msg.from.as_str(), id = %msg.message_id);
     let _enter = span.enter();
     tracing::trace!("Incoming message from {}", msg.from);
     tracing::trace!("Raw message: {:?}", msg);
 
     // Fetch user
-    let user = match db::get_or_create_user(pool, &msg.from, "threema").await {
+    let user = match db::get_or_create_user(pool, msg.from.as_str(), "threema").await {
         Ok(user) => {
             tracing::debug!("User ID: {}", user.id);
             user
@@ -70,32 +71,31 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
         }
     };
 
-    // Decrypt
-    let data = match api.decrypt_incoming_message(&msg, &public_key) {
-        Ok(key) => key,
-        Err(e) => {
-            tracing::error!("Could not fetch public key for {}: {}", &msg.from, e);
+    // Decrypt and decode
+    let data = match api.decrypt_and_decode_incoming_message(&msg, &public_key) {
+        Ok(data) => data,
+        Err(CryptoOrMessageDecodeError::Crypto(e)) => {
+            tracing::error!("Could not decrypt message from {}: {}", &msg.from, e);
             return http_500();
+        }
+        Err(CryptoOrMessageDecodeError::Decode(e)) => {
+            tracing::warn!(
+                "Could not decode message from {}: {}, discarding",
+                &msg.from,
+                e
+            );
+            return http_200();
         }
     };
     tracing::debug!("Decrypted data: {:?}", data);
 
     // Handle depending on type
-    match data.first() {
-        Some(0x01) => {
-            // Text message, UTF-8
-            let text = match std::str::from_utf8(&data[1..]) {
-                Ok(decoded) => decoded,
-                Err(_) => {
-                    tracing::warn!("Received non-UTF8 bytes: {:?}, discarding", &data[1..]);
-                    return http_200();
-                }
-            };
-
+    match data {
+        E2eMessage::Text(text) => {
             // Process text message
             match command_handlers::handle_threema_text_message(
-                text,
-                &msg.from,
+                &text,
+                msg.from.as_str(),
                 msg.nickname.as_deref(),
                 config.threema.admin_id.as_deref(),
                 &user,
@@ -104,7 +104,8 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
             .await
             {
                 HandleResult::Reply(text) => {
-                    match api.encrypt_text_msg(text.as_ref(), &public_key) {
+                    let reply = E2eMessage::Text(text.into_owned());
+                    match api.encode_and_encrypt(&reply, &public_key) {
                         Ok(reply) => match api.send(&msg.from, &reply, false).await {
                             Ok(msgid) => tracing::debug!("Reply sent (msgid={})", msgid),
                             Err(e) => tracing::error!("Could not send reply: {}", e),
@@ -119,20 +120,18 @@ async fn handle_threema_request(state: State<Arc<SharedState>>, bytes: Bytes) ->
             // Done processing, confirm message
             http_200()
         }
-        Some(0x80) => {
+        E2eMessage::DeliveryReceipt(_) => {
             // Delivery receipt, ignore
             tracing::info!("Ignoring delivery receipt");
             http_200()
         }
-        Some(other) => {
+        other => {
             // Unsupported message type, ignore
-            tracing::warn!("Ignoring unsupported message type: {}", other);
+            tracing::warn!(
+                "Ignoring unsupported message type: {:?}",
+                other.encode().message_type
+            );
             http_200()
-        }
-        None => {
-            // Empty data
-            tracing::warn!("Incoming decrypted data is empty");
-            http_500()
         }
     }
 }

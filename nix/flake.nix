@@ -2,7 +2,7 @@
   description = "A chat bot that notifies about new paragliding cross-country flights published on XContest";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -45,8 +45,11 @@
                   # Required stub options for evaluation
                   nixpkgs.hostPlatform = system;
                   boot.loader.grub.enable = false;
-                  fileSystems."/".device = "nodev";
-                  system.stateVersion = "25.11";
+                  fileSystems."/" = {
+                    device = "nodev";
+                    fsType = "ext4";
+                  };
+                  system.stateVersion = "26.05";
                 }
               ];
             })

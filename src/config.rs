@@ -1,6 +1,7 @@
 use std::{fs::File, io::Read, path::Path};
 
 use serde_derive::Deserialize;
+use threema_gateway::ThreemaId;
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -13,7 +14,7 @@ pub struct Config {
 #[derive(Debug, Clone, Deserialize)]
 pub struct ThreemaConfig {
     /// The Threema Gateway ID (starts with a `*`)
-    pub gateway_id: String,
+    pub gateway_id: ThreemaId,
     /// The Threema Gateway secret (can be found on gateway.threema.ch)
     pub gateway_secret: String,
     /// The hex-encoded private key
