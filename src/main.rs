@@ -82,13 +82,11 @@ async fn main() -> Result<()> {
     let xc = XContest::new(client.clone());
 
     // Create Threema Gateway API instance
-    let api = threema_gateway::ApiBuilder::new(
-        &config.threema.gateway_id,
-        &config.threema.gateway_secret,
-    )
-    .with_private_key_str(&config.threema.private_key)
-    .and_then(|builder| builder.into_e2e())
-    .context("Could not create Threema Gateway API client")?;
+    let api =
+        threema_gateway::ApiBuilder::new(config.threema.gateway_id, &config.threema.gateway_secret)
+            .with_private_key_str(&config.threema.private_key)
+            .and_then(|builder| builder.into_e2e())
+            .context("Could not create Threema Gateway API client")?;
 
     // Listening address for HTTP server
     let addr: SocketAddr = config

@@ -6,7 +6,9 @@ use anyhow::{Context, Result};
 use reqwest::Client;
 use sqlx::{Pool, Sqlite};
 use threema_gateway::{
-    encrypt_file_data, ApiBuilder, E2eApi, FileData, FileMessage, RenderingType,
+    encrypt_file_data,
+    protocol::e2e::file::{FileMessage, RenderingType},
+    ApiBuilder, E2eApi, E2eMessage, FileData, ThreemaId,
 };
 
 use crate::{
@@ -23,7 +25,7 @@ pub struct ThreemaNotifier {
 
 impl ThreemaNotifier {
     pub fn new(config: &ThreemaConfig, client: Client, pool: Pool<Sqlite>) -> Result<Self> {
-        let api = ApiBuilder::new(&config.gateway_id, &config.gateway_secret)
+        let api = ApiBuilder::new(config.gateway_id, &config.gateway_secret)
             .with_client(client)
             .with_private_key_str(&config.private_key)
             .and_then(|builder| builder.into_e2e())
@@ -39,6 +41,11 @@ impl ThreemaNotifier {
         user: &User,
     ) -> Result<()> {
         tracing::debug!("notify");
+
+        let recipient: ThreemaId = user
+            .username
+            .parse()
+            .with_context(|| format!("Invalid Threema ID: {:?}", user.username))?;
 
         // Fetch public key of recipient
         let public_key = threema::get_public_key(user, &self.api, &self.pool).await?;
@@ -88,20 +95,20 @@ impl ThreemaNotifier {
             .context("Could not create file message")?;
             let encrypted = self
                 .api
-                .encrypt_file_msg(&msg, &public_key)
+                .encode_and_encrypt(&E2eMessage::File(msg), &public_key)
                 .context("Failed to encrypt file message")?;
 
             // Send
-            self.api.send(&user.username, &encrypted, false).await?
+            self.api.send(&recipient, &encrypted, false).await?
         } else {
             // Encrypt simple notification text message
             let encrypted = self
                 .api
-                .encrypt_text_msg(&text, &public_key)
+                .encode_and_encrypt(&E2eMessage::Text(text), &public_key)
                 .context("Failed to encrypt text message")?;
 
             // Send
-            self.api.send(&user.username, &encrypted, false).await?
+            self.api.send(&recipient, &encrypted, false).await?
         };
 
         tracing::debug!("Notification sent, message id is {}", msg_id);

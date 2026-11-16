@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use sqlx::{Pool, Sqlite};
-use threema_gateway::{E2eApi, RecipientKey};
+use threema_gateway::{E2eApi, RecipientKey, ThreemaId};
 
 use crate::db::{cache_public_key, User};
 
@@ -22,8 +22,12 @@ pub async fn get_public_key(
             );
 
             // Fetch public key from API
+            let threema_id: ThreemaId = user
+                .username
+                .parse()
+                .with_context(|| format!("Invalid Threema ID: {:?}", user.username))?;
             let pubkey = api
-                .lookup_pubkey(&user.username)
+                .lookup_pubkey(&threema_id)
                 .await
                 .context("Could not look up recipient public key")?;
 
