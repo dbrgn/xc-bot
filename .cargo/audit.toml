@@ -1,4 +1,8 @@
 [advisories]
 ignore = [
-    "RUSTSEC-2023-0071", # rsa (Potential key recovery though timing): Only used through sqlx-mysql (not used by our code)
+    # libsqlite3-sys (bundled SQLite < 3.54.0 can return uninitialized memory with a crafted
+    # database/-wal file pair): Not exploitable here, we only open our own database file.
+    # Fixed in libsqlite3-sys 0.39, which sqlx 0.9.0 does not allow yet.
+    # TODO: Remove this once sqlx 0.9.1 is released (https://github.com/launchbadge/sqlx/pull/4517).
+    "RUSTSEC-2026-0459",
 ]
